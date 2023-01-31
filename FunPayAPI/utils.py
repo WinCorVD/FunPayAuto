@@ -1,10 +1,16 @@
-"""
-Модуль с разными инструментами для работы других модулей.
-"""
-
-
 import string
 import random
+
+
+def gen_random_tag() -> str:
+    """
+    Генерирует случайный тег для запроса (для runner'а).
+
+    :return: сгенерированный тег.
+    """
+    simbols = string.digits + string.ascii_lowercase
+    tag = "".join(random.choice(simbols) for _ in range(10))
+    return tag
 
 
 def get_wait_time_from_raise_response(response: str) -> int:
@@ -29,14 +35,3 @@ def get_wait_time_from_raise_response(response: str) -> int:
         return 3600
     else:
         return 10
-
-
-def gen_rand_tag() -> str:
-    """
-    Генерирует случайный тег для запроса (для runner'а).
-
-    :return: сгенерированный тег.
-    """
-    simbols = string.digits + string.ascii_lowercase
-    tag = "".join(random.choice(simbols) for _ in range(10))
-    return tag

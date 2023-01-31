@@ -26,7 +26,7 @@ class CLILoggerFormatter(logging.Formatter):
     Форматтер для вывода логов в консоль.
     """
     log_format = f"{Fore.BLACK + Style.BRIGHT}[%(asctime)s]{Style.RESET_ALL}" \
-                 f"{Fore.CYAN}>{Style.RESET_ALL} $color%(levelname)s:$spaces %(message)s{Style.RESET_ALL}"
+                 f"{Fore.CYAN}>{Style.RESET_ALL} $RESET%(levelname)s:$spaces %(message)s{Style.RESET_ALL}"
 
     colors = {
         logging.DEBUG: Fore.BLACK + Style.BRIGHT,
@@ -36,7 +36,7 @@ class CLILoggerFormatter(logging.Formatter):
         logging.CRITICAL: Back.RED
     }
 
-    time_format = "%Y-%m-%d %H:%M:%S"
+    time_format = "%d-%m-%Y %H:%M:%S"
     max_level_name_length = 10
 
     def __init__(self):
@@ -45,9 +45,9 @@ class CLILoggerFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         msg = record.getMessage()
         msg = add_colors(msg)
-        msg = msg.replace("$color", self.colors[record.levelno])
+        msg = msg.replace("$RESET", self.colors[record.levelno])
         record.msg = msg
-        log_format = self.log_format.replace("$color", self.colors[record.levelno])\
+        log_format = self.log_format.replace("$RESET", self.colors[record.levelno])\
             .replace("$spaces", " " * (self.max_level_name_length - len(record.levelname)))
         formatter = logging.Formatter(log_format, self.time_format)
         return formatter.format(record)
@@ -57,9 +57,10 @@ class FileLoggerFormatter(logging.Formatter):
     """
     Форматтер для сохранения логов в файл.
     """
-    log_format = "[%(asctime)s][%(filename)s][%(funcName)s][%(lineno)d]> %(levelname)s: %(message)s"
+    log_format = "[%(asctime)s][%(filename)s][%(lineno)d]> %(levelname).1s: %(message)s"
     max_level_name_length = 12
     clear_expression = re.compile(r"(\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]))|(\n)|(\r)")
+    time_format = "%H:%M:%S"
 
     def __init__(self):
         super(FileLoggerFormatter, self).__init__()
@@ -68,7 +69,7 @@ class FileLoggerFormatter(logging.Formatter):
         msg = record.getMessage()
         msg = self.clear_expression.sub("", msg)
         record.msg = msg
-        formatter = logging.Formatter(self.log_format)
+        formatter = logging.Formatter(self.log_format, self.time_format)
         return formatter.format(record)
 
 
@@ -110,7 +111,7 @@ CONFIG = {
             "handlers": ["cli_handler", "file_handler"],
             "level": "DEBUG"
         },
-        "Cardinal": {
+        "FPC": {
             "handlers": ["cli_handler", "file_handler"],
             "level": "DEBUG"
         },

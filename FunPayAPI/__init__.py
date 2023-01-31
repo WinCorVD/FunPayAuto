@@ -1,3 +1,9 @@
-"""
-Данный пакет предоставляет возможность работать с FunPay API.
-"""
+import logging
+from .types import *
+from .account import *
+from .runner import *
+from .users import *
+from .utils import *
+from .exceptions import *
+
+logger = logging.getLogger("FunPayAPI")

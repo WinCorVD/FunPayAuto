@@ -1,49 +1,45 @@
-"""
-В этом модуле написаны функции для получения тех или иных данных о пользователе FunPay.
-Для функций в этом модуле НЕ требуется golden_key аккаунта.
-"""
-
-
-from bs4 import BeautifulSoup
 import requests
-from typing import TypedDict
+import logging
+from bs4 import BeautifulSoup
 
-from .enums import Links, CategoryTypes
-from .categories import Category
-from .lots import Lot
-
-
-class UsersLotsInfoFormat(TypedDict):
-    categories: list[Category]
-    lots: list[Lot]
+from . import types
+from . import exceptions
 
 
-def get_user_lots_info(user_id: int, include_currency: bool = False, timeout: float = 10.0) -> UsersLotsInfoFormat:
+logger = logging.getLogger("FunPayAPI.users")
+
+
+def get_user(user_id: int, include_currency: bool = False, user_agent: str = "", timeout: float = 10.0) -> types.UserInfo:
     """
     Получает полную информацию о лотах пользователя.
 
     :param user_id: ID пользователя.
     :param include_currency: включать ли в список категории / лоты, относящиеся к игровой валюте.
+    :param user_agent: user-agent.
     :param timeout: тайм-аут ожидания ответа.
-    :return: {"categories": [категории пользователя], "lots": лоты пользователя.}
-    У экземпляров Category и Lot game_id = None. Для получения game_id категории нужно использовать
-    FunPayAPI.account.get_category_game_id().
+    :return: экземпляр класса с информацией о пользователе.
     """
-    response = requests.get(f"{Links.USER}/{user_id}/", timeout=timeout)
+    headers = {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "user-agent": user_agent
+    }
+    response = requests.get(f"{types.Links.USER}/{user_id}/", headers=headers, timeout=timeout)
+    logger.debug(response.status_code)
     if response.status_code == 404:
-        raise Exception  # todo: создать и добавить кастомное исключение: пользователя не существует.
+        raise Exception("Пользователь не найден.")  # todo: создать и добавить кастомное исключение: пользователя не существует.
     if response.status_code != 200:
-        raise Exception  # todo: создать и добавить кастомное исключение: не удалось получить данные с сайта.
+        raise exceptions.StatusCodeIsNot200(response.status_code)
 
     html_response = response.content.decode()
-    parser = BeautifulSoup(html_response, "lxml")
+    logger.debug(html_response)
+    parser = BeautifulSoup(html_response, "html.parser")
     categories = []
     lots = []
 
     # Если категорий не найдено - возвращаем пустые списки
     category_divs = parser.find_all("div", {"class": "offer-list-title-container"})
     if category_divs is None:
-        return {"categories": [], "lots": []}
+        return types.UserInfo([], [])
 
     # Парсим категории
     for div in category_divs:
@@ -55,27 +51,25 @@ def get_user_lots_info(user_id: int, include_currency: bool = False, timeout: fl
             # Например: https://funpay.com/chips/125/ - Серебро Black Desert Mobile.
             if not include_currency:
                 continue
-            category_type = CategoryTypes.CURRENCY
+            category_type = types.CategoryTypes.CURRENCY
         else:
-            category_type = CategoryTypes.LOT
+            category_type = types.CategoryTypes.LOT
 
         edit_lots_link = public_link + "trade"
         title = category_link.text
         category_id = int(public_link.split("/")[-2])
-        category_object = Category(id_=category_id, game_id=None, title=title, edit_lots_link=edit_lots_link,
-                                   public_link=public_link, type_=category_type)
+        category_object = types.Category(id_=category_id, game_id=None, title=title, edit_lots_link=edit_lots_link,
+                                         public_link=public_link, type_=category_type)
         categories.append(category_object)
 
         # Парсим лоты внутри текущей категории
         lot_divs = div.parent.find_all("a", {"class": "tc-item"})
         for lot_div in lot_divs:
             lot_id = int(lot_div["href"].split("id=")[1])
-            server = lot_div.find("div", {"class": "tc-server"})
-            server = server.text if server is not None else None
             lot_title = lot_div.find("div", {"class": "tc-desc-text"}).text
             price = lot_div.find("div", {"class": "tc-price"})["data-s"]
 
-            lot_obj = Lot(category_id, None, lot_id, server, lot_title, price)
+            lot_obj = types.Lot(category_id, None, lot_id, lot_title, price)
             lots.append(lot_obj)
 
-    return {"categories": categories, "lots": lots}
+    return types.UserInfo(lots, categories)

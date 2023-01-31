@@ -2,116 +2,120 @@
 В данном модуле написаны хэндлеры для разных эвентов.
 """
 
-
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from FunPayAPI.runner import MessageEvent, OrderEvent
-from FunPayAPI.orders import Order
+from FunPayAPI.types import NewMessageEvent, NewOrderEvent, RaiseResponse, Message, Order
 import FunPayAPI.users
 
 from Utils import cardinal_tools
-
+import configparser
 import time
 import logging
 import traceback
 from threading import Thread
 
 import telebot.types
+from telebot.types import InlineKeyboardButton as Button
+from telegram import telegram_tools as tg_tools
 
 
-logger = logging.getLogger("Cardinal.handlers")
+logger = logging.getLogger("FPC.handlers")
 
 
-def create_reply_button(node_id: int):
+ORDER_HTML_TEMPLATE = """<a href="https://funpay.com/orders/DELIVERY_TEST/" class="tc-item info">
+    <div class="tc-date">
+        <div class="tc-date-time">сегодня, 00:00</div>
+        <div class="tc-date-left">1 минуту назад</div>
+    </div>
+
+    <div class="tc-order">#DELIVERY_TEST</div>
+    <div class="order-desc">
+        <div>ТЕСТ АВТОВЫДАЧИ</div>
+        <div class="text-muted">$lot_name</div>
+    </div>
+
+    <div class="tc-user">
+        <div class="media media-user mt0 offline">
+        <div class="media-left">
+            <div class="avatar-photo pseudo-a" tabindex="0" data-href="https://funpay.com/users/000000/" style="background-image: url(https://s.funpay.com/s/avatar/6d/h3/6dh3m89zv8k90kwlj9bg.jpg);"></div>
+        </div>
+        <div class="media-body">
+            <div class="media-user-name">
+                <span class="pseudo-a" tabindex="0" data-href="https://funpay.com/users/000000/">$username</span>
+            </div>
+            <div class="media-user-status">был миллион лет назад</div>
+        </div>
+    </div>
+        <div class="tc-status text-primary">Оплачен</div>
+        <div class="tc-price text-nowrap tc-seller-sum">999999.0<span class="unit">₽</span></div>
+</a>"""
+
+
+def create_reply_button(node_id: int) -> telebot.types.InlineKeyboardMarkup:
+    """
+    Генерирует кнопку для отправки сообщения из Telegram в ЛС пользователю FunPay.
+    :param node_id: ID переписки, в которую нужно отправить сообщение.
+    :return: экземпляр кнопки (клавиатуры).
+    """
     keyboard = telebot.types.InlineKeyboardMarkup()
-    reply_button = telebot.types.InlineKeyboardButton(text="Ответить", callback_data=f"reply_to_node_id:{node_id}")
+    reply_button = telebot.types.InlineKeyboardButton(text="📨 Ответить", callback_data=f"to_node:{node_id}")
     keyboard.add(reply_button)
     return keyboard
 
 
-# Хэндлеры для REGISTER_TO_NEW_MESSAGE_EVENT
-def log_msg_handler(msg: MessageEvent, *args):
+def create_new_order_keyboard(order_id: str) -> telebot.types.InlineKeyboardMarkup:
     """
-    Логирует полученное сообщение. Хэндлер.
-
-    :param msg: сообщение.
-    :return:
+    Генерирует клавиатуру для сообщения о новом оредере.
+    :param order_id: ID оредра.
+    :return: экземпляр кнопки (клавиатуры).
     """
-    logger.info(f"Новое сообщение в переписке с пользователем $YELLOW{msg.sender_username}"
-                f" (node: {msg.node_id}):")
-    for line in msg.message_text.split("\n"):
-        logger.info(line)
+    keyboard = telebot.types.InlineKeyboardMarkup()\
+        .add(Button(text="💸 Вернуть деньги", callback_data=f"refund_request:{order_id[1:]}")) \
+        .add(Button(text="🌐 Открыть страницу заказа", url=f"https://funpay.com/orders/{order_id[1:]}/"))
+    return keyboard
 
 
-def send_new_message_notification(msg: MessageEvent, cardinal: Cardinal, *args):
+# Новое сообщение (REGISTER_TO_NEW_MESSAGE)
+def log_msg_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
     """
-    Отправляет уведомление о новом сообщении в телеграм.
-
-    :param msg: экземпляр сообщения.
-    :param cardinal: экземпляр Кардинала.
+    Логирует полученное сообщение.
     """
-    if cardinal.telegram is None or not int(cardinal.main_config["Telegram"]["newMessageNotification"]):
-        return
-    if msg.message_text.strip() in cardinal.auto_response_config.sections():
-        return
+    logger.info(f"$MAGENTA┌──$RESET Новое сообщение в переписке с пользователем $YELLOW{event.message.chat_with}"
+                f" (node: {event.message.node_id}):")
 
-    if "Покупатель" in msg.message_text or "Продавец" in msg.message_text:
-        if "вернул деньги" in msg.message_text or "оплатил заказ" in msg.message_text or \
-                "оставил отзыв" in msg.message_text:
-            return
-    text = f"""Новое сообщение в переписке с пользователем $userlink.
-
-{msg.message_text}"""
-    replaces = [
-        ["$userlink", f"[{msg.sender_username}](https://funpay.com/chat/?node={msg.node_id})"]
-    ]
-
-    button = create_reply_button(msg.node_id)
-    Thread(target=cardinal.telegram.send_notification, args=(text, replaces, button)).start()
+    for index, line in enumerate(event.message.text.split("\n")):
+        if not index:
+            logger.info(f"$MAGENTA└───> $CYAN{line}")
+        else:
+            logger.info(f"      $CYAN{line}")
 
 
-def send_response(msg: MessageEvent, cardinal: Cardinal, *args) -> bool:
+def send_response_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
     """
-    Отправляет ответ на команду.
-
-    :param msg: сообщение.
-    :param cardinal: экземпляр Кардинала.
-    :return: True - если сообщение отправлено, False - если нет.
+    Проверяет, является ли сообщение командой, и если да, отправляет ответ на данную команду.
     """
-    response_text = cardinal_tools.format_msg_text(cardinal.auto_response_config[msg.message_text.strip()]["response"],
-                                                   msg)
-
-    new_msg_object = MessageEvent(msg.node_id, response_text, msg.sender_username, msg.tag)
-
-    response = cardinal.send_message(new_msg_object)
-    return response
-
-
-def send_response_handler(msg: MessageEvent, cardinal: Cardinal, *args):
-    """
-    Проверяет, является ли сообщение командой, и если да, пытается выполнить send_response()
-
-    :param msg: сообщение.
-    :param cardinal: экземпляр Кардинала.
-    :return:
-    """
-    if not int(cardinal.main_config["FunPay"]["AutoResponse"]):
-        return
-    if msg.message_text.strip().lower() not in cardinal.auto_response_config:
+    if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockResponse"]):
         return
 
-    logger.info(f"Получена команда \"{msg.message_text.strip()}\" "
-                f"в переписке с пользователем $YELLOW{msg.sender_username} (node: {msg.node_id}).")
-    done = False
+    command = event.message.text.strip().lower()
+    if not int(cardinal.MAIN_CFG["FunPay"]["autoResponse"]):
+        return
+    if command not in cardinal.AR_CFG:
+        return
+
+    logger.info(f"Получена команда $YELLOW{command}$RESET "
+                f"в переписке с пользователем $YELLOW{event.message.chat_with} (node: {event.message.node_id}).")
     attempts = 3
-    while not done and attempts:
+    response_text = cardinal_tools.format_msg_text(cardinal.AR_CFG[command]["response"], event.message)
+    new_msg_obj = FunPayAPI.types.Message(response_text, event.message.node_id, event.message.chat_with)
+    while attempts:
         try:
-            result = send_response(msg, cardinal, *args)
+            result = cardinal.send_message(new_msg_obj)
         except:
-            logger.error(f"Произошла непредвиденная ошибка при отправке ответа пользователю {msg.sender_username}.",)
+            logger.error(f"Произошла непредвиденная ошибка при отправке ответа пользователю {event.message.chat_with}.")
             logger.debug(traceback.format_exc())
             logger.info("Следующая попытка через секунду.")
             attempts -= 1
@@ -122,76 +126,147 @@ def send_response_handler(msg: MessageEvent, cardinal: Cardinal, *args):
             logger.info("Следующая попытка через секунду.")
             time.sleep(1)
             continue
-        done = True
-    if not done:
-        logger.error("Не удалось отправить ответ пользователю: превышено кол-во попыток.")
+        return
+    logger.error("Не удалось отправить ответ пользователю: превышено кол-во попыток.")
+    return
+
+
+def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
+    """
+    Отправляет уведомление о новом сообщении в телеграм.
+    """
+    if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockNewMessageNotification"]):
+        return
+    if cardinal.telegram is None or not int(cardinal.MAIN_CFG["Telegram"]["newMessageNotification"]):
+        return
+    if event.message.text.strip().lower() in cardinal.AR_CFG.sections():
         return
 
-
-def send_command_notification_handler(msg: MessageEvent, cardinal: Cardinal, *args):
-    """
-    Отправляет уведомление о введенной комманде в телеграм. Хэндлер.
-
-    :param msg: сообщение с FunPay.
-    :param cardinal: экземпляр Кардинала.
-    :return:
-    """
-    if cardinal.telegram is None or msg.message_text.strip() not in cardinal.auto_response_config:
+    if event.message.text.startswith("!автовыдача"):
         return
 
-    if cardinal.auto_response_config[msg.message_text].get("telegramNotification") is not None:
-        if not int(cardinal.auto_response_config[msg.message_text]["telegramNotification"]):
+    if any(i in event.message.text for i in ["Покупатель", "Продавец"]):
+        if any(i in event.message.text for i in ["вернул деньги", "оплатил заказ", "написал отзыв",
+                                                 "подтвердил успешное выполнение заказа"]):
             return
+    text = f"""Новое сообщение в переписке с пользователем <a href="https://funpay.com/chat/?node={event.message.node_id}">{event.message.chat_with}</a>.
 
-        if cardinal.auto_response_config[msg.message_text].get("notificationText") is None:
-            text = f"Пользователь {msg.sender_username} ввел команду \"{msg.message_text}\"."
-        else:
-            text = cardinal_tools.format_msg_text(cardinal.auto_response_config[msg.message_text]["notificationText"],
-                                                  msg)
+{tg_tools.format_text(event.message.text)}"""
 
-        Thread(target=cardinal.telegram.send_notification, args=(text, )).start()
+    button = create_reply_button(event.message.node_id)
+    Thread(target=cardinal.telegram.send_notification, args=(text, button), daemon=True).start()
 
 
-# Хэндлеры для REGISTER_TO_RAISE_EVENT
-def send_categories_raised_notification_handler(game_id: int, category_names: list[str], wait_time: int,
-                                                cardinal: Cardinal, *args) -> None:
+def send_command_notification_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
+    """
+    Отправляет уведомление о введенной комманде в телеграм.
+    """
+    if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockCommandNotification"]):
+        return
+    command = event.message.text.strip().lower()
+    if cardinal.telegram is None or command not in cardinal.AR_CFG:
+        return
+
+    if cardinal.AR_CFG[command].get("telegramNotification") is None:
+        return
+    if not int(cardinal.AR_CFG[command]["telegramNotification"]):
+        return
+
+    if cardinal.AR_CFG[command].get("notificationText") is None:
+        text = f"Пользователь {event.message.chat_with} ввел команду \"{tg_tools.format_text(command)}\"."
+    else:
+        text = cardinal_tools.format_msg_text(cardinal.AR_CFG[command]["notificationText"], event.message)
+
+    Thread(target=cardinal.telegram.send_notification, args=(text, ), daemon=True).start()
+
+
+def test_auto_delivery_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
+    if not event.message.text.startswith("!автовыдача"):
+        return
+    split = event.message.text.split(" ")
+    if len(split) < 2:
+        logger.warning("Не обнаружен секретный код.")
+        return
+
+    key = event.message.text.split(" ")[1].strip()
+    if not key.isnumeric() or int(key) != cardinal.secret_key:
+        logger.warning("Неверный секретный код.")
+        return
+
+    cardinal.update_secret_key()
+    logger.warning("Секретный код обновлен.")
+
+    split = event.message.text.split(" ", 2)
+    if len(split) < 3 or not split[2].strip():
+        logger.warning("Название лота не обнаружено.")
+        return
+
+    lot_name = split[2].strip()
+
+    fake_order = Order(ORDER_HTML_TEMPLATE.replace("$username", event.message.chat_with).replace("$lot_name", lot_name),
+                       "#DELIVERY_TEST", lot_name, 999999.0, event.message.chat_with, 000000,
+                       FunPayAPI.types.OrderStatuses.OUTSTANDING)
+
+    fake_event = NewOrderEvent(fake_order, event.tag)
+    cardinal.run_handlers(cardinal.new_order_handlers, (cardinal, fake_event,))
+
+
+def send_categories_raised_notification_handler(cardinal: Cardinal, game_id: int, response: RaiseResponse) -> None:
     """
     Отправляет уведомление о поднятии лотов в Telegram.
-
-    :param game_id: ID игры, к которой относятся категории.
-    :param category_names: Названия поднятых категорий.
-    :param wait_time: Предполагаемое время ожидания следующего поднятия.
-    :param cardinal: экземпляр Кардинала.
-    :return:
     """
-    if cardinal.telegram is None or not int(cardinal.main_config["Telegram"]["lotsRaiseNotification"]):
+    if cardinal.telegram is None or not int(cardinal.MAIN_CFG["Telegram"]["lotsRaiseNotification"]):
         return
 
-    cats_text = "".join(f"\"{i}\", " for i in category_names).strip()[:-1]
+    cats_text = "".join(f"\"{i}\", " for i in response.raised_category_names).strip()[:-1]
     Thread(target=cardinal.telegram.send_notification,
            args=(f"Поднял категории: {cats_text}. (ID игры: {game_id})\n"
-                 f"Попробую еще раз через {cardinal_tools.time_to_str(wait_time)}.", )).start()
+                 f"Ответ FunPay: {response.funpay_response}"
+                 f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.", ), daemon=True).start()
 
 
-# Хэндлеры для REGISTER_TO_NEW_ORDER_EVENT
-def send_product_text(node_id: int, buyer_username: str, text: str, order_id: str, cardinal: Cardinal, *args):
+# Новый ордер (REGISTER_TO_NEW_ORDER)
+def send_new_order_notification_handler(cardinal: Cardinal, event: NewOrderEvent, *args):
+    """
+    Отправляет уведомления о новом заказе в телеграм.
+    """
+    if event.order.buyer_username in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockNewOrderNotification"]):
+        return
+    if cardinal.telegram is None:
+        return
+    if not int(cardinal.MAIN_CFG["Telegram"]["newOrderNotification"]):
+        return
+
+    node_id = cardinal.account.get_node_id_by_username(event.order.buyer_username)
+
+    text = f"""<b>Новый заказ</b>  <code>{event.order.id}</code>
+
+<b><i>Покупатель:</i></b>  <code>{event.order.buyer_username}</code>
+<b><i>Сумма:</i></b>  <code>{event.order.price}</code>
+<b><i>Лот:</i></b>  <code>{tg_tools.format_text(event.order.title)}</code>"""
+
+    keyboard = create_new_order_keyboard(event.order.id)
+    Thread(target=cardinal.telegram.send_notification, args=(text, keyboard), daemon=True).start()
+
+
+def send_product_text(node_id: int, text: str, order_id: str, cardinal: Cardinal, *args) -> bool:
     """
     Отправляет сообщение с товаром в чат node_id.
 
     :param node_id: ID чата.
-    :param buyer_username: никнейм покупателя.
     :param text: текст сообщения.
     :param order_id: ID ордера.
     :param cardinal: экземпляр Кардинала.
     :return: результат отправки.
     """
-    new_msg_obj = MessageEvent(node_id, text, buyer_username, None)
+    new_msg_obj = Message(text, node_id, None)
     attempts = 3
     while attempts:
         try:
             result = cardinal.send_message(new_msg_obj)
         except:
-            logger.error(f"Произошла непредвиденная ошибка при отправке товара для ордера {order_id}.")
+            logger.error(f"Произошла непредвиденная ошибка при отправке товара для ордера {order_id}. "
+                         f"Подробнее в файле logs/log.log.")
             logger.debug(traceback.format_exc())
             logger.info("Следующая попытка через секунду.")
             attempts -= 1
@@ -202,145 +277,133 @@ def send_product_text(node_id: int, buyer_username: str, text: str, order_id: st
             logger.info("Следующая попытка через секунду.")
             time.sleep(1)
             continue
-        break
-    if not attempts:
-        return False
-    return True
+        return True
+    return False
 
 
-def deliver_product(order: Order, cardinal: Cardinal, *args) -> tuple[bool, str, int] | None:
+def deliver_product(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: configparser.SectionProxy,
+                    *args) -> tuple[bool, str, int] | None:
     """
     Форматирует текст товара и отправляет его покупателю.
-
-    :param order: объект заказа.
-    :param cardinal: экземпляр Кардинала.
     :return: результат выполнения. None - если лота нет в конфиге.
     [Результат выполнения, текст товара, оставшееся кол-во товара] - в любом другом случае.
     """
-    # Ищем название лота в конфиге.
-    delivery_obj = None
-    for lot_name in cardinal.auto_delivery_config:
-        if lot_name in order.title:
-            delivery_obj = cardinal.auto_delivery_config[lot_name]
-            break
-    if delivery_obj is None:
-        return None
-
-    node_id = cardinal.account.get_node_id_by_username(order.buyer_name)
-    response_text = cardinal_tools.format_order_text(delivery_obj["response"], order)
+    node_id = cardinal.account.get_node_id_by_username(event.order.buyer_username)
+    response_text = cardinal_tools.format_order_text(delivery_obj["response"], event.order)
 
     # Проверяем, есть ли у лота файл с товарами. Если нет, то просто отправляем response лота.
-    if delivery_obj.get("productsFilePath") is None:
-        result = send_product_text(node_id, order.buyer_name, response_text, order.id, cardinal)
+    if delivery_obj.get("productsFileName") is None:
+        result = send_product_text(node_id, response_text, event.order.id, cardinal)
         return result, response_text, -1
 
     # Получаем товар.
-    product = cardinal_tools.get_product(delivery_obj.get("productsFilePath"))
+    file_name = delivery_obj.get("productsFileName")
+    product = cardinal_tools.get_product(f"storage/products/{file_name}")
     product_text = product[0].replace("\\n", "\n")
     response_text = response_text.replace("$product", product_text)
 
     # Отправляем товар.
-    result = send_product_text(node_id, order.buyer_name, response_text, order.id, cardinal)
+    result = send_product_text(node_id, response_text, event.order.id, cardinal)
 
     # Если произошла какая-либо ошибка при отправлении товара, возвращаем товар обратно в файл с товарами.
     if not result:
-        cardinal_tools.add_product(delivery_obj.get("productsFilePath"), product_text)
+        cardinal_tools.add_products(f"storage/products/{file_name}", [product_text])
     return result, response_text, -1
 
 
-def deliver_product_handler(order: Order, cardinal: Cardinal, *args):
+def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> None:
     """
     Обертка для deliver_product(), обрабатывающая ошибки.
-
-    :param order: экземпляр заказа.
-    :param cardinal: экземпляр кардинала.
-    :return:
     """
-    if not int(cardinal.main_config["FunPay"]["autoDelivery"]):
+    # Ищем название лота в конфиге.
+    delivery_obj = None
+    config_lot_name = ""
+    for lot_name in cardinal.AD_CFG:
+        if lot_name in event.order.title:
+            delivery_obj = cardinal.AD_CFG[lot_name]
+            config_lot_name = lot_name
+            break
+    if delivery_obj is None:
+        return None
+
+    if delivery_obj.get("disable") is not None and delivery_obj.getboolean("disable"):
         return
+
+    cardinal.run_handlers(cardinal.pre_delivery_handlers, (cardinal, event, config_lot_name))
     try:
-        result = deliver_product(order, cardinal, *args)
+        result = deliver_product(cardinal, event, delivery_obj, *args)
         if result is None:
-            logger.info(f"Лот \"{order.title}\" не обнаружен в конфиге авто-выдачи.")
+            logger.info(f"Лот \"{event.order.title}\" не обнаружен в конфиге авто-выдачи.")
         elif not result[0]:
-            logger.error(f"Ошибка при выдаче товара для ордера {order.id}: превышено кол-во попыток.")
-            cardinal.run_handlers(cardinal.delivery_event_handlers,
-                                  [order, "Превышено кол-во попыток.", cardinal, True])
+            logger.error(f"Ошибка при выдаче товара для ордера {event.order.id}: превышено кол-во попыток.")
+            cardinal.run_handlers(cardinal.post_delivery_handlers,
+                                  (cardinal, event, config_lot_name, "Превышено кол-во попыток.", True))
         else:
-            logger.info(f"Товар для ордера {order.id} выдан.")
-            cardinal.run_handlers(cardinal.delivery_event_handlers,
-                                  [order, result[1], cardinal, False])
+            logger.info(f"Товар для ордера {event.order.id} выдан.")
+            cardinal.run_handlers(cardinal.post_delivery_handlers,
+                                  (cardinal, event, config_lot_name, result[1], False))
     except Exception as e:
-        logger.error(f"Произошла непредвиденная ошибка при обработке заказа {order.id}.")
+        logger.error(f"Произошла непредвиденная ошибка при обработке заказа {event.order.id}.")
         logger.debug(traceback.format_exc())
-        cardinal.run_handlers(cardinal.delivery_event_handlers,
-                              [order, str(e), cardinal, True])
+        cardinal.run_handlers(cardinal.post_delivery_handlers,
+                              (cardinal, event, config_lot_name, str(e), True))
 
 
-def send_new_order_notification_handler(order: Order, cardinal: Cardinal, *args):
-    """
-    Отправляет уведомления о новом заказе в телеграм.
-
-    :param order: экземпляр заказа.
-    :param cardinal: экземпляр кардинала.
-    :return:
-    """
-    if cardinal.telegram is None:
-        return
-    if not int(cardinal.main_config["Telegram"]["newOrderNotification"]):
-        return
-
-    text = f"""Новый ордер!
-Покупатель: {order.buyer_name}.
-ID ордера: $orderlink.
-Сумма: {order.price}.
-Лот: \"{order.title}\"."""
-
-    replaces = [
-        ["$orderlink", f"[\\{order.id} \\(клик\\)](https://funpay.com/orders/{order.id[1:]}/)"]
-    ]
-    Thread(target=cardinal.telegram.send_notification, args=(text, replaces)).start()
-
-
-# Хэндлеры для REGISTER_TO_DELIVERY_EVENT
-def send_delivery_notification_handler(order: Order, delivery_text: str, cardinal: Cardinal,
-                                       errored: bool = False, *args):
+# REGISTER_TO_POST_DELIVERY
+def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent, config_lot_name: str,
+                                       delivery_text: str, errored: bool = False, *args):
     """
     Отправляет уведомление в телеграм об отправке товара.
-
-    :param order: экземпляр ордера.
-    :param delivery_text: текст отправленного товара.
-    :param cardinal: экземпляр кардинала.
-    :param errored: результат отправки товара.
-    :return:
     """
     if cardinal.telegram is None:
         return
-    if not int(cardinal.main_config["Telegram"]["productsDeliveryNotification"]):
+    if not int(cardinal.MAIN_CFG["Telegram"]["productsDeliveryNotification"]):
         return
 
     if errored:
-        text = f"""Произошла ошибка при выдаче товара для ордера {order.id}.
+        text = f"""Произошла ошибка при выдаче товара для ордера <code>{event.order.id}</code>.
 Ошибка: {delivery_text}"""
     else:
-        text = f"""Успешно выдал товар для ордера {order.id}.
+        text = f"""Успешно выдал товар для ордера <code>{event.order.id}</code>.
+
 ----- ТОВАР -----
-{delivery_text}"""
+{tg_tools.format_text(delivery_text)}"""
 
-    Thread(target=cardinal.telegram.send_notification, args=(text, )).start()
+    Thread(target=cardinal.telegram.send_notification, args=(text, ), daemon=True).start()
 
 
-# Хэндлеры для REGISTER_TO_ORDERS_UPDATE_EVENT
-def activate_lots_handler(event: OrderEvent, cardinal: Cardinal, *args):
+def change_lot_state_handler(cardinal: Cardinal, event: NewOrderEvent, config_lot_name: str,
+                             delivery_text: str, errored: bool = False, *args):
+    delivery_obj = cardinal.AD_CFG[config_lot_name]
+    if delivery_obj.get("productsFileName"):
+        # получить кол-во товара
+        file_name = delivery_obj.get("productsFileName")
+        products_count = cardinal_tools.get_products_count(f"storage/products/{file_name}")
+        if products_count:
+            if int(cardinal.MAIN_CFG["FunPay"]["autoRestore"]):
+                # restore
+                pass
+                return
+            return
+        else:
+            if int(cardinal.MAIN_CFG["FunPay"]["autoDisable"]):
+                # disable
+                pass
+                return
+            return
+    else:
+        if int(cardinal.MAIN_CFG["FunPay"]["autoRestore"]):
+            if cardinal.AD_CFG[config_lot_name].get("disableAutoRestore") is not None and int(cardinal.AD_CFG[config_lot_name].get("disableAutoRestore")):
+                return
+            else:
+                # todo
+                return
+
+
+'''def activate_lots_handler(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: configparser.SectionProxy):
     """
     Активирует деактивированные лоты.
-
-    :param event: не используется.
-    :param cardinal: экземпляр кардинала.
-    :return:
     """
-    if not int(cardinal.main_config["FunPay"]["autoRestore"]):
-        return
     logger.info("Обновляю информацию о лотах...")
     attempts = 3
     lots_info = []
@@ -364,15 +427,13 @@ def activate_lots_handler(event: OrderEvent, cardinal: Cardinal, *args):
                 logger.info(f"Активировал лот {lot.id}.")
             except:
                 logger.error(f"Не удалось активировать лот {lot.id}.")
-                logger.debug(traceback.format_exc())
+                logger.debug(traceback.format_exc())'''
 
 
-# Хэндлеры для REGISTER_TO_START_EVENT
-def send_bot_started_notification_handler(cardinal: Cardinal, *args):
+# REGISTER_TO_POST_START
+def send_bot_started_notification_handler(cardinal: Cardinal, *args) -> None:
     """
     Отправляет уведомление о запуске бота в телеграм.
-
-    :param cardinal: экземпляр кардинала.
     """
     if cardinal.telegram is None:
         return
@@ -381,37 +442,25 @@ def send_bot_started_notification_handler(cardinal: Cardinal, *args):
         curr = ""
     else:
         curr = cardinal.account.currency
-    text = f"""Бот запущен!
-Аккаунт: {cardinal.account.username} | {cardinal.account.id}
-Баланс: {cardinal.account.balance}{curr}
-Незавершенных ордеров: {cardinal.account.active_orders}"""
+    text = f"""<b><u>Бот запущен!</u></b>
+
+<b><i>Аккаунт:</i></b>  <code>{cardinal.account.username}</code> | <code>{cardinal.account.id}</code>
+<b><i>Баланс:</i></b> <code>{cardinal.account.balance}{curr}</code>
+<b><i>Незавершенных ордеров:</i></b>  <code>{cardinal.account.active_orders}</code>"""
     cardinal.telegram.send_notification(text)
 
 
-REGISTER_TO_NEW_MESSAGE_EVENT = [
-    log_msg_handler,
-    send_response_handler,
-    send_command_notification_handler,
-    send_new_message_notification
-]
+REGISTER_TO_NEW_MESSAGE = [log_msg_handler,
+                           send_response_handler,
+                           send_new_message_notification_handler,
+                           send_command_notification_handler,
+                           test_auto_delivery_handler]
 
-REGISTER_TO_RAISE_EVENT = [
-    send_categories_raised_notification_handler
-]
+REGISTER_TO_POST_LOTS_RAISE = [send_categories_raised_notification_handler]
 
-REGISTER_TO_ORDERS_UPDATE_EVENT = [
-    activate_lots_handler
-]
+REGISTER_TO_NEW_ORDER = [send_new_order_notification_handler, deliver_product_handler]
 
-REGISTER_TO_NEW_ORDER_EVENT = [
-    send_new_order_notification_handler,
-    deliver_product_handler
-]
+REGISTER_TO_POST_DELIVERY = [send_delivery_notification_handler]
 
-REGISTER_TO_DELIVERY_EVENT = [
-    send_delivery_notification_handler
-]
+REGISTER_TO_POST_START = [send_bot_started_notification_handler]
 
-REGISTER_TO_START_EVENT = [
-    send_bot_started_notification_handler
-]

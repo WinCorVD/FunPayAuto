@@ -1,23 +1,34 @@
-"""
-В данном модуле написаны инструменты, которыми пользуется Кардинал в процессе своей работы.
-"""
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import FunPayAPI.account
+    import FunPayAPI.types
 
-
-import os
-import json
 from datetime import datetime
+import psutil
+import Utils.exceptions
 import itertools
+import json
+import sys
+import os
 
 
-import FunPayAPI.account
-import FunPayAPI.categories
-import FunPayAPI.runner
-import FunPayAPI.orders
+def get_products_count(products_file_path: str) -> int:
+    """
+    Считает кол-во товара в указанном файле.
+    :param products_file_path: путь до файла с товарами.
+    :return: кол-во товара в указанном файле.
+    """
+    if not os.path.exists(products_file_path):
+        return 0
+    with open(products_file_path, "r", encoding="utf-8") as f:
+        products = f.read()
+    products = products.split("\n")
+    products = list(itertools.filterfalse(lambda el: not el, products))
+    return len(products)
 
-import Utils.exceptions as excs
 
-
-def cache_categories(category_list: list[FunPayAPI.categories.Category]) -> None:
+def cache_categories(category_list: list[FunPayAPI.types.Category]) -> None:
     """
     Кэширует данные о категориях аккаунта в файл storage/cache/categories.json. Необходимо для того, чтобы каждый раз
     при запуске бота не отправлять запросы на получение game_id каждой категории.
@@ -67,7 +78,37 @@ def load_cached_categories() -> dict:
     return cached_categories
 
 
-def create_greetings(account: FunPayAPI.account):
+def cache_block_list(block_list: list[str]) -> None:
+    """
+    Кэширует черный список.
+    :param block_list: черный список.
+    """
+    if not os.path.exists("storage/cache"):
+        os.makedirs("storage/cache")
+
+    with open("storage/cache/block_list.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(block_list, indent=4))
+
+
+def load_block_list() -> list[str]:
+    """
+    Загружает черный список.
+    :return: черный список.
+    """
+    if not os.path.exists("storage/cache/block_list.json"):
+        return []
+
+    with open("storage/cache/block_list.json", "r", encoding="utf-8") as f:
+        block_list = f.read()
+
+        try:
+            block_list = json.loads(block_list)
+        except json.decoder.JSONDecodeError:
+            return []
+        return block_list
+
+
+def create_greetings(account: FunPayAPI.account.Account):
     """
     Генерирует приветствие для вывода в консоль после загрузки данных о пользователе.
 
@@ -87,12 +128,45 @@ def create_greetings(account: FunPayAPI.account):
 
     currency = f" {account.currency}" if account.currency is not None else ""
 
-    greetings_text = f"""{greetings}, $CYAN{account.username}.
-Ваш ID: $YELLOW{account.id}.
-Ваш текущий баланс: $YELLOW{account.balance}{currency}.
-Текущие незавершенные сделки: $YELLOW{account.active_orders}.
-Удачной торговли!"""
+    lines = [
+        f"* {greetings}, $CYAN{account.username}.",
+        f"* Ваш ID: $YELLOW{account.id}.",
+        f"* Ваш текущий баланс: $YELLOW{account.balance}{currency}.",
+        f"* Текущие незавершенные сделки: $YELLOW{account.active_orders}.",
+        f"* Удачной торговли!"
+    ]
+
+    length = 40
+    greetings_text = f"\n{'-'*length}\n"
+    for line in lines:
+        greetings_text += line + " "*(length - len(line.replace("$CYAN", "").replace("$YELLOW", "")) - 1) + "$RESET*\n"
+    greetings_text += f"{'-'*length}\n"
     return greetings_text
+
+
+def time_to_str(time_: int):
+    """
+    Конвертирует число в строку формата "Nч Nмин Nсек"
+
+    :param time_: число для конвертации.
+    :return: строку-время.
+    """
+    m = time_ // 60
+    h = m // 60
+    time_ -= m * 60
+    m -= h * 60
+    s = time_
+
+    if not any([h, m, s]):
+        return "0 сек"
+    time_str = ""
+    if h:
+        time_str += f"{h}ч"
+    if m:
+        time_str += f" {m}мин"
+    if s:
+        time_str += f" {s}сек"
+    return time_str.strip()
 
 
 def get_month_name(month_number: int) -> str:
@@ -121,91 +195,50 @@ def get_month_name(month_number: int) -> str:
     return months[month_number-1]
 
 
-def time_to_str(time_: int):
-    """
-    Конвертирует число в строку формата "Nч Nмин Nсек"
-
-    :param time_: число для конвертации.
-    :return: строку-время.
-    """
-    m = time_ // 60
-    h = m // 60
-    time_ -= m * 60
-    m -= h * 60
-    s = time_
-
-    if not any([h, m, s]):
-        return "0 сек"
-    time_str = ""
-    if h:
-        time_str += f"{h}ч"
-    if m:
-        time_str += f" {m}мин"
-    if s:
-        time_str += f" {s}сек"
-    return time_str.strip()
-
-
 def get_product(path: str) -> list[str | int] | None:
     """
     Берет 1 единицу товара из файла.
-
     :param path: путь до файла с товарами.
     :return: [Товар, оставшееся кол-во товара]
     """
     with open(path, "r", encoding="utf-8") as f:
         products = f.read()
 
-    if path.endswith(".json"):
-        products = json.loads(products)
-    else:
-        products = products.split("\n")
+    products = products.split("\n")
 
     # Убираем пустые элементы
     products = list(itertools.filterfalse(lambda el: not el, products))
 
     if not len(products):
-        raise excs.NoProductsError(path)
+        raise Utils.exceptions.NoProductsError(path)
 
-    product = str(products[0])
-    products.pop(0)
+    product = products.pop(0)
     amount = len(products)
 
     with open(path, "w", encoding="utf-8") as f:
-        if path.endswith(".json"):
-            f.write(json.dumps(products, indent=4, ensure_ascii=False))
-        else:
-            f.write("\n".join(products))
+        f.write("\n".join(products))
 
     return [product, amount]
 
 
-def add_product(path: str, product: str) -> None:
+def add_products(path: str, products: list[str]) -> None:
     """
-    Добавляет 1 единицу товара в файл.
-
+    Добавляет товары в файл с товарами.
     :param path: путь до файла с товарами.
-    :param product: товар.
+    :param products: товары.
     :return:
     """
     with open(path, "r", encoding="utf-8") as f:
-        products = f.read()
+        old_products = f.read()
 
-    if path.endswith(".json"):
-        products = json.loads(products)
-    else:
-        products = products.split("\n")
-
-    products.append(product)
+    old_products = old_products.split("\n")
+    old_products.extend(products)
 
     with open(path, "w", encoding="utf-8") as f:
-        if path.endswith(".json"):
-            f.write(json.dumps(products, indent=4, ensure_ascii=False))
-        else:
-            f.write("\n".join(products))
+        f.write("\n".join(old_products))
 
 
-def format_msg_text(text: str, msg: FunPayAPI.runner.MessageEvent) -> str:
+def format_msg_text(text: str, msg: FunPayAPI.types.Message) -> str:
     """
     Форматирует текст, подставляя значения переменных, доступных для MessageEvent.
 
@@ -228,8 +261,8 @@ def format_msg_text(text: str, msg: FunPayAPI.runner.MessageEvent) -> str:
         "$date": date,
         "$time": time_,
         "$full_time": time_full,
-        "$username": msg.sender_username,
-        "$message_text": msg.message_text
+        "$username": msg.chat_with,
+        "$message_text": msg.text
     }
 
     for var in variables:
@@ -237,10 +270,9 @@ def format_msg_text(text: str, msg: FunPayAPI.runner.MessageEvent) -> str:
     return text
 
 
-def format_order_text(text: str, order: FunPayAPI.orders.Order) -> str:
+def format_order_text(text: str, order: FunPayAPI.types.Order) -> str:
     """
     Форматирует текст, подставляя значения переменных, доступных для Order.
-
     :param text: текст для форматирования.
     :param order: экземпляр Order.
     :return: форматированый текст.
@@ -260,10 +292,31 @@ def format_order_text(text: str, order: FunPayAPI.orders.Order) -> str:
         "$date": date,
         "$time": time_,
         "$full_time": time_full,
-        "$username": order.buyer_name,
+        "$username": order.buyer_username,
         "$order_name": order.title,
     }
 
     for var in variables:
         text = text.replace(var, variables[var])
     return text
+
+
+def restart_program():
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
+    try:
+        process = psutil.Process()
+        for handler in process.open_files():
+            os.close(handler.fd)
+        for handler in process.connections():
+            os.close(handler.fd)
+    except Exception as e:
+        pass
+
+
+def shut_down():
+    try:
+        process = psutil.Process()
+        process.terminate()
+    except Exception as e:
+        print(e)

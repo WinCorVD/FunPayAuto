@@ -1,0 +1,11 @@
+Почта: mail1@mail.ru\nПароль: Password1
+Почта: mail2@mail.ru\nПароль: Password2
+Почта: mail3@mail.ru\nПароль: Password3
+Почта: mail4@mail.ru\nПароль: Password4
+Почта: mail5@mail.ru\nПароль: Password5
+Почта: mail6@mail.ru\nПароль: Password6
+Почта: mail7@mail.ru\nПароль: Password7
+Почта: mail8@mail.ru\nПароль: Password8
+Почта: mail9@mail.ru\nПароль: Password9
+Почта: mail10@mail.ru\nПароль: Password10
+Почта: mail11@mail.ru\nПароль: Password11

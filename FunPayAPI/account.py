@@ -1,87 +1,184 @@
-"""
-В данном модуле написаны функции и классы, позволяющие получать / изменять данные аккаунта FunPay.
-Для всех функций и методов требуется golden_key аккаунта FunPay.
-"""
-
-
 from bs4 import BeautifulSoup
 import requests
 import json
 import time
+import logging
 
-from typing import TypedDict
-
-from .categories import Category
-from .enums import Links, OrderStatuses, CategoryTypes
-from .orders import Order
-from .other import get_wait_time_from_raise_response, gen_rand_tag
+from . import types
+from . import exceptions
+from . import utils
 
 
-class RaiseCategoriesResponse(TypedDict):
-    """
-    Type-класс, описывающий структуру словаря, возвращаемого методом Account.raise_game_categories.
-    """
-    complete: bool
-    wait: int
-    raised_category_names: list[str]
-    response: dict
+logger = logging.getLogger("FunPayAPI.account")
 
 
 class Account:
     """
     Класс для работы с аккаунтом FunPay.
     """
-    def __init__(self, app_data: dict, id_: int, username: str, balance: float, currency: str | None,
-                 active_orders: int, golden_key: str, csrf_token: str, session_id: str, last_update: int):
+    def __init__(self, golden_key: str, user_agent: str = "", timeout: float | int = 10.0):
+        self.golden_key: str = golden_key
+        self.user_agent = user_agent
+        self.timeout: float = timeout
+        self.__authorized: bool = False
+
+        self.html: str | None = None
+        self.app_data: dict | None = None
+        self.id: int | None = None
+        self.username: str | None = None
+        self.balance: int | None = None
+        self.currency: str | None = None
+        self.active_orders: int | None = None
+
+        self.csrf_token: str | None = None
+        self.session_id: str | None = None
+        self.last_update: int | None = None
+
+        self.saved_html_chats: str | None = None
+
+    def get(self, update_session_id: bool = False):
         """
-        :param app_data: словарь с данными из <body data-app-data=>.
-        :param id_: id пользователя.
-        :param username: имя пользователя.
-        :param balance: баланс пользователя.
-        :param currency: знак валюты на аккаунте.
-        :param active_orders: активные ордеры пользователя.
-        :param golden_key: golden_key (токен) аккаунта.
-        :param csrf_token: csrf токен.
-        :param session_id: PHPSESSID.
-        :param last_update: время последнего обновления.
+        Получает / обновляет данные об аккаунте.
+
+        :param update_session_id: обновить ли session_id или использовать старый.
         """
+        headers = {"cookie": f"golden_key={self.golden_key}",
+                   "user-agent": self.user_agent}
+        if self.session_id and not update_session_id:
+            headers["cookie"] += f"; PHPSESSID={self.session_id}"
+
+        response = requests.get(types.Links.BASE_URL, headers=headers, timeout=self.timeout)
+        logger.debug(f"Статус-код получения данных об аккаунте: {response.status_code}.")
+        if response.status_code != 200:
+            raise exceptions.StatusCodeIsNot200(response.status_code)
+
+        html_response = response.content.decode()
+        # logger.debug(f"HTML аккаунта: {html_response}")
+        soup = BeautifulSoup(html_response, "html.parser")
+
+        username = soup.find("div", {"class": "user-link-name"})
+        if username is None:
+            raise exceptions.AccountDataNotfound()
+
+        username = username.text
+        app_data = json.loads(soup.find("body")["data-app-data"])
+        userid = app_data["userId"]
+        csrf_token = app_data["csrf-token"]
+
+        active_orders = soup.find("span", {"class": "badge badge-trade"})
+        active_orders = int(active_orders.text) if active_orders else 0
+
+        balance_badge = soup.find("span", {"class": "badge badge-balance"})
+        balance = float(balance_badge.text.split(" ")[0]) if balance_badge else 0
+        currency = balance_badge.text.split(" ")[1] if balance_badge else ""
+
+        cookies = response.cookies.get_dict()
+        if (update_session_id and self.session_id) or not self.session_id:
+            session_id = cookies["PHPSESSID"]
+            self.session_id = session_id
+
+        self.html = html_response
         self.app_data = app_data
-        self.id = id_
+        self.id = userid
         self.username = username
         self.balance = balance
         self.currency = currency
-        self.active_orders = active_orders
-        self.golden_key = golden_key
         self.csrf_token = csrf_token
-        self.session_id = session_id
-        self.last_update = last_update
-        # Сохраненные переписки. Для того, что бы при новом ордере заново не отправлять запрос на получение чатов.
-        self.chats_html: str | None = None
+        self.active_orders = active_orders
+        self.csrf_token = csrf_token
+        self.last_update = int(time.time())
+        self.__authorized = True
+        return self
 
-    def send_message(self, node_id: int, text: str, timeout: float = 10.0) -> dict:
+    def get_orders(self, include_outstanding: bool = True,
+                   include_completed: bool = False,
+                   include_refund: bool = False,
+                   exclude: list[str] | None = None) -> list[types.Order]:
         """
-        Отправляет сообщение в переписку с ID node_id.
+        Получает список ордеров на аккаунте.
 
-        :param node_id: ID переписки.
-        :param text: текст сообщения.
-        :param timeout: тайм-аут ожидания ответа.
+        :param include_outstanding: включить в список оплаченные (но не завершенные) заказы.
+        :param include_completed: включить в список завершенные заказы.
+        :param include_refund: включить в список заказы, за которые оформлен возврат.
+        :param exclude: список ID заказов, которые нужно исключить из итогового списка.
+        :return: Список с ордерами.
+        """
+        if not self.is_authorized():
+            raise exceptions.NotAuthorized()
+
+        exclude = [] if not exclude else exclude
+        headers = {"cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id};",
+                   "user-agent": self.user_agent}
+
+        response = requests.get(types.Links.ORDERS, headers=headers, timeout=self.timeout)
+        logger.debug(f"Статус-код получения ордеров: {response.status_code}.")
+        if response.status_code != 200:
+            raise exceptions.StatusCodeIsNot200(response.status_code)
+
+        html_response = response.content.decode()
+        # logger.debug(f"Ответ от FunPay (информация об ордерах): {html_response}")
+        soup = BeautifulSoup(html_response, "html.parser")
+
+        check_user = soup.find("div", {"class": "user-link-name"})
+        if check_user is None:
+            raise exceptions.AccountDataNotfound()
+
+        order_divs = soup.find_all("a", {"class": "tc-item"})
+        if order_divs is None:
+            return []
+        orders_list = []
+
+        for div in order_divs:
+            classname = div.get("class")
+            if "warning" in classname:
+                if not include_refund:
+                    continue
+                status = types.OrderStatuses.REFUND
+            elif "info" in classname:
+                if not include_outstanding:
+                    continue
+                status = types.OrderStatuses.OUTSTANDING
+            else:
+                if not include_completed:
+                    continue
+                status = types.OrderStatuses.COMPLETED
+
+            order_id = div.find("div", {"class": "tc-order"}).text
+            if order_id in exclude:
+                continue
+
+            title = div.find("div", {"class": "order-desc"}).find("div").text
+            price = float(div.find("div", {"class": "tc-price"}).text.split(" ")[0])
+
+            buyer_div = div.find("div", {"class": "media-user-name"}).find("span")
+            buyer_username = buyer_div.text
+            buyer_id = int(buyer_div.get("data-href")[:-1].split("https://funpay.com/users/")[1])
+
+            order = types.Order(html=str(div), id_=order_id, title=title, price=price, buyer_username=buyer_username,
+                                buyer_id=buyer_id, status=status)
+            orders_list.append(order)
+        return orders_list
+
+    def send_message(self, message_obj: types.Message) -> dict:
+        """
+        Отправляет сообщение.
+
+        :param message_obj: объект сообщения.
         :return: ответ FunPay.
         """
-        if not text.strip():
-            raise Exception  # todo: создать и добавить кастомное исключение: пустое сообщение.
-
         headers = {
             "accept": "*/*",
             "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}",
             "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "x-requested-with": "XMLHttpRequest"
+            "x-requested-with": "XMLHttpRequest",
+            "user-agent": self.user_agent
         }
         request = {
             "action": "chat_message",
             "data": {
-                "node": node_id,
+                "node": message_obj.node_id,
                 "last_message": -1,
-                "content": text
+                "content": message_obj.text
             }
         }
         payload = {
@@ -89,9 +186,19 @@ class Account:
             "request": json.dumps(request),
             "csrf_token": self.csrf_token
         }
-        response = requests.post(Links.RUNNER, headers=headers, data=payload, timeout=timeout)
+        response = requests.post(types.Links.RUNNER, headers=headers, data=payload, timeout=self.timeout)
+        logger.debug(f"Статус-код отправления сообщения: {response.status_code}.")
+        if response.status_code != 200:
+            raise exceptions.StatusCodeIsNot200(response.status_code)
+
         json_response = response.json()
-        return json_response
+        logger.debug(f"Ответ от FunPay (отправление сообщения): {json_response}")
+        if json_response.get("response"):
+            if json_response.get("response").get("error") is not None:
+                raise exceptions.MessageNotDelivered(json_response)
+            return json_response
+        else:
+            raise exceptions.MessageNotDelivered(json_response)
 
     def get_node_id_by_username(self, username: str, force_request: bool = False) -> int | None:
         """
@@ -102,198 +209,50 @@ class Account:
         :param force_request: пропустить ли поиск в self.chats_html и отправить ли сразу запрос к FunPay.
         :return: node_id чата или None, если чат не найден.
         """
-        if not force_request and self.chats_html is not None:
-            parser = BeautifulSoup(self.chats_html, "lxml")
+        if not force_request and self.saved_html_chats is not None:
+            parser = BeautifulSoup(self.saved_html_chats, "html.parser")
             user_box = parser.find("div", {"class": "media-user-name"}, text=username)
             if user_box is not None:
                 node_id = user_box.parent["data-id"]
                 return int(node_id)
         return None
 
-    def get_account_orders(self,
-                           include_outstanding: bool = True,
-                           include_completed: bool = False,
-                           include_refund: bool = False,
-                           exclude: list[str] | None = None,
-                           timeout: float = 10.0) -> list[Order]:
-        """
-        Получает список ордеров на аккаунте.
-
-        :param include_outstanding: включить в список оплаченные (но не завершенные) заказы.
-        :param include_completed: включить в список завершенные заказы.
-        :param include_refund: включить в список заказы, за которые оформлен возврат.
-        :param exclude: список ID заказов, которые нужно исключить из итогового списка.
-        :param timeout: тайм-аут ожидания ответа.
-        :return: Список с ордерами.
-        """
-        exclude = exclude if exclude else []
-        headers = {"cookie": f"golden_key={self.golden_key};"}
-        if self.session_id:
-            headers["cookie"] += f" PHPSESSID={self.session_id};"
-
-        response = requests.get(Links.ORDERS, headers=headers, timeout=timeout)
-        if response.status_code != 200:
-            raise Exception  # todo: создать и добавить кастомное исключение: не удалось получить данные с сайта.
-
-        html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
-
-        check_user = parser.find("div", {"class": "user-link-name"})
-        if check_user is None:
-            raise Exception  # todo: создать и добавить кастомное исключение: невалидный токен.
-
-        order_divs = parser.find_all("a", {"class": "tc-item"})
-        if order_divs is None:
-            return []
-        parsed_orders = []
-
-        for div in order_divs:
-            order_div_classname = div.get("class")
-            if "warning" in order_div_classname:
-                if not include_refund:
-                    continue
-                status = OrderStatuses.REFUND
-            elif "info" in order_div_classname:
-                if not include_outstanding:
-                    continue
-                status = OrderStatuses.OUTSTANDING
-            else:
-                if not include_completed:
-                    continue
-                status = OrderStatuses.COMPLETED
-
-            order_id = div.find("div", {"class": "tc-order"}).text
-            if order_id in exclude:
-                continue
-            title = div.find("div", {"class": "order-desc"}).find("div").text
-            price = float(div.find("div", {"class": "tc-price"}).text.split(" ")[0])
-
-            buyer = div.find("div", {"class": "media-user-name"}).find("span")
-            buyer_name = buyer.text
-            buyer_id = int(buyer.get("data-href")[:-1].split("https://funpay.com/users/")[1])
-
-            order_object = Order(id_=order_id, title=title, price=price, buyer_username=buyer_name, buyer_id=buyer_id,
-                                 status=status)
-
-            parsed_orders.append(order_object)
-
-        return parsed_orders
-
-    def get_category_game_id(self, category: Category, timeout: float = 10.0) -> int:
+    def get_category_game_id(self, category: types.Category) -> int:
         """
         Получает ID игры, к которой относится категория.
 
         :param category: экземпляр класса Category.
-        :param timeout: тайм-аут получения ответа.
         :return: ID игры, к которой относится категория.
         """
-        if category.type == CategoryTypes.LOT:
-            link = f"{Links.BASE_URL}/lots/{category.id}/trade"
+        if category.type == types.CategoryTypes.LOT:
+            link = f"{types.Links.BASE_URL}/lots/{category.id}/trade"
         else:
-            link = f"{Links.BASE_URL}/chips/{category.id}/trade"
+            link = f"{types.Links.BASE_URL}/chips/{category.id}/trade"
 
-        headers = {"cookie": f"golden_key={self.golden_key}"}
-        response = requests.get(link, headers=headers, timeout=timeout)
+        headers = {"cookie": f"golden_key={self.golden_key}",
+                   "user-agent": self.user_agent}
+        response = requests.get(link, headers=headers, timeout=self.timeout)
+        logger.debug(f"Статус-код получения ордеров: {response.status_code}.")
         if response.status_code == 404:
-            raise Exception  # todo: создать и добавить кастомное исключение: категория не найдена.
+            raise Exception("Категория не найдена.")  # todo: создать кастомное исключение: категория не найдена.
         if response.status_code != 200:
-            raise Exception  # todo: создать и добавить кастомное исключение: не удалось получить данные с сайта.
+            raise exceptions.StatusCodeIsNot200(response.status_code)
 
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
+        # logger.debug(f"Ответ от FunPay (запрос game_id категории): {html_response}")
+        parser = BeautifulSoup(html_response, "html.parser")
 
-        check_user = parser.find("div", {"class": "user-link-name"})
-        if check_user is None:
-            raise Exception  # todo: создать и добавить кастомное исключение: невалидный токен.
+        if parser.find("div", {"class": "user-link-name"}) is None:
+            raise exceptions.AccountDataNotfound()
 
-        if category.type == CategoryTypes.LOT:
+        if category.type == types.CategoryTypes.LOT:
             game_id = int(parser.find("div", {"class": "col-sm-6"}).find("button")["data-game"])
         else:
             game_id = int(parser.find("input", {"name": "game"})["value"])
 
         return game_id
 
-    def request_lots_raise(self, category: Category, timeout: float = 10.0) -> dict:
-        """
-        Отправляет запрос на получение modal-формы для поднятия лотов категории category.id.
-        !ВНИМЕНИЕ! Для отправки запроса необходимо, чтобы category.game_id != None.
-        !ВНИМАНИЕ! Если на аккаунте только 1 категория, относящаяся к игре category.game_id,
-        то FunPay поднимет данную категорию в списке без отправления modal-формы с выбором других категорий.
-
-        :param category: экземпляр класса Category.
-        :param timeout: тайм-аут получения ответа.
-        :return: ответ FunPay.
-        """
-        headers = {
-            "accept": "*/*",
-            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "cookie": f"locale=ru; golden_key={self.golden_key}",
-            "x-requested-with": "XMLHttpRequest"
-        }
-        payload = {
-            "game_id": category.game_id,
-            "node_id": category.id
-        }
-
-        response = requests.post(Links.RAISE, headers=headers, data=payload, timeout=timeout)
-        if response.status_code != 200:
-            raise Exception  # todo: создать и добавить кастомное исключение: не удалось получить данные с сайта.
-        response_dict = response.json()
-        return response_dict
-
-    def raise_game_categories(self, category: Category, exclude: list[str] | None = None,
-                              timeout: float = 10.0) -> RaiseCategoriesResponse:
-        """
-        Поднимает лоты всех категорий игры category.game_id.
-        !ВНИМЕНИЕ! Для поднятия лотов необходимо, чтобы category.game_id != None.
-
-        :param category: экземпляр класса Category.
-        :param exclude: список из названий категорий, которые не нужно поднимать.
-        :param timeout: тайм-аут ожидания ответа.
-        :return: ответ FunPay.
-        """
-        check = self.request_lots_raise(category, timeout)
-        if check.get("error") and check.get("msg") and "Подождите" in check.get("msg"):
-            wait_time = get_wait_time_from_raise_response(check.get("msg"))
-            return {"complete": False, "wait": wait_time, "raised_category_names": [], "response": check}
-        elif check.get("error"):
-            # Если вернулся ответ с ошибкой и это не "Подождите n времени" - значит творится какая-то дичь.
-            return {"complete": False, "wait": 10, "raised_category_names": [], "response": check}
-        elif check.get("error") is not None and not check.get("error"):
-            # Если была всего 1 категория и FunPay ее поднял без отправки modal-окна
-            return {"complete": True, "wait": 3600, "raised_category_names": [category.title], "response": check}
-        elif check.get("modal"):
-            # Если же появилась модалка, то парсим все чекбоксы и отправляем запрос на поднятие всех категорий, кроме тех,
-            # которые в exclude.
-            parser = BeautifulSoup(check.get("modal"), "lxml")
-            category_ids = []
-            category_names = []
-            checkboxes = parser.find_all("div", {"class": "checkbox"})
-            for cb in checkboxes:
-                category_id = cb.find("input")["value"]
-                if (exclude is not None and category_id not in exclude) or exclude is None:
-                    category_ids.append(category_id)
-                    category_name = cb.find("label").text
-                    category_names.append(category_name)
-
-            headers = {
-                "accept": "*/*",
-                "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "cookie": f"locale=ru; golden_key={self.golden_key}",
-                "x-requested-with": "XMLHttpRequest"
-            }
-            payload = {
-                "game_id": category.game_id,
-                "node_id": category.id,
-                "node_ids[]": category_ids
-            }
-            response = requests.post(Links.RAISE, headers=headers, data=payload, timeout=timeout).json()
-            if not response.get("error"):
-                return {"complete": True, "wait": 3600, "raised_category_names": category_names, "response": response}
-            else:
-                return {"complete": False, "wait": 10, "raised_category_names": [], "response": response}
-
-    def get_lot_info(self, lot_id: int, game_id: int) -> list[dict[str, str]]:
+    def get_lot_info(self, lot_id: int, game_id: int) -> dict[str, str]:
         """
         Получает значения всех полей лота (в окне редактирования лота).
 
@@ -305,114 +264,194 @@ class Account:
             "accept": "*/*",
             "content-type": "application/json",
             "x-requested-with": "XMLHttpRequest",
-            "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}"
+            "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}",
+            "user-agent": self.user_agent
         }
-        tag = gen_rand_tag()
+        tag = utils.gen_random_tag()
         payload = {
             "tag": tag,
             "offer": lot_id,
             "node": game_id
         }
-
         query = f"?tag={tag}&offer={lot_id}&node={game_id}"
 
-        response = requests.get(f"{Links.BASE_URL}/lots/offerEdit{query}", headers=headers, data=payload)
+        response = requests.get(f"{types.Links.BASE_URL}/lots/offerEdit{query}", headers=headers, data=payload)
+        logger.debug(f"Статус-код получения данных о лоте: {response.status_code}")
+        if not response.status_code == 200:
+            raise exceptions.StatusCodeIsNot200(response.status_code)
         json_response = response.json()
-        parser = BeautifulSoup(json_response["html"], "lxml")
+        logger.debug(f"Ответ от FunPay (получение данных о лоте): {json_response}")
+        parser = BeautifulSoup(json_response["html"], "html.parser")
 
         input_fields = parser.find_all("input")
         text_fields = parser.find_all("textarea")
         selection_fields = parser.find_all("select")
-        result = []
+        result = {}
+
         for field in input_fields:
             name = field["name"]
             value = field.get("value")
             if value is None:
                 value = ""
-            result.append({"name": name, "value": value})
+            result[name] = value
 
         for field in text_fields:
             name = field["name"]
-            text = field.text
-            if not text:
-                text = ""
-            result.append({"name": name, "value": text})
+            value = field.text
+            if not value:
+                value = ""
+            result[name] = value
 
         for field in selection_fields:
             name = field["name"]
             value = field.find("option", selected=True)["value"]
-            result.append({"name": name, "value": value})
+            result[name] = value
 
         return result
 
-    def change_lot_state(self, lot_id: int, game_id: int, state: bool = True) -> dict:
+    def save_lot(self, lot_info: dict[str, str], active: bool = True) -> dict:
         """
         Изменяет состояние лота (активное / неактивное).
 
-        :param lot_id: ID лота.
-        :param game_id: ID игры, к которой относится лот.
-        :param state: Целевое состояние лота.
+        :param lot_info: информация о полях лота, получаемая с помощью метода get_lot_info()
+        :param active: сделать ли лот активным.
         :return: ответ FunPay.
         """
-        lot_info = self.get_lot_info(lot_id, game_id)
-
-        payload = {}
-        for field in lot_info:
-            if field["name"] == "active":
-                if state:
-                    field["value"] = "on"
-                else:
-                    continue
-            payload[field["name"]] = field["value"]
-
-        payload["location"] = "trade"
+        lot_info["location"] = "trade"
+        if active:
+            lot_info["active"] = "on"
+        else:
+            if lot_info.get("active") is not None:
+                lot_info.pop("active")
 
         headers = {
             "accept": "*/*",
             "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
             "x-requested-with": "XMLHttpRequest",
-            "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}"
+            "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}",
+            "user-agent": self.user_agent
         }
-        response = requests.post(f"{Links.BASE_URL}/lots/offerSave", headers=headers, data=payload)
-        return response.json()
+        response = requests.post(f"{types.Links.BASE_URL}/lots/offerSave", headers=headers, data=lot_info)
+        logger.debug(f"Статус-код изменения состояния лота: {response.status_code}.")
+        if response.status_code != 200:
+            raise exceptions.StatusCodeIsNot200(response.status_code)
 
+        json_response = response.json()
+        logger.debug(f"Ответ от FunPay (сохранение лота): {json_response}")
+        if json_response.get("error"):
+            raise exceptions.LotNotUpdated(json_response)
+        return json_response
 
-def get_account(token: str, timeout: float = 10.0) -> Account:
-    """
-    Авторизируется с помощью токена и получает общие данные об аккаунте.
+    def request_lots_raise(self, category: types.Category) -> dict:
+        """
+        Отправляет запрос на получение modal-формы для поднятия лотов категории category.id.
+        !ВНИМЕНИЕ! Для отправки запроса необходимо, чтобы category.game_id != None.
+        !ВНИМАНИЕ! Если на аккаунте только 1 категория, относящаяся к игре category.game_id,
+        то FunPay поднимет данную категорию в списке без отправления modal-формы с выбором других категорий.
 
-    :param token: golden_key (токен) аккаунта.
-    :param timeout: тайм-аут получения ответа.
-    :return: экземпляр класса Account.
-    """
-    headers = {"cookie": f"golden_key={token}"}
+        :param category: экземпляр класса Category.
+        :return: ответ FunPay.
+        """
+        headers = {
+            "accept": "*/*",
+            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "cookie": f"locale=ru; golden_key={self.golden_key}",
+            "x-requested-with": "XMLHttpRequest",
+            "user-agent": self.user_agent
+        }
+        payload = {
+            "game_id": category.game_id,
+            "node_id": category.id
+        }
 
-    response = requests.get(Links.BASE_URL, headers=headers, timeout=timeout)
-    if response.status_code != 200:
-        raise Exception  # todo: создать и добавить кастомное исключение: не удалось получить данные с сайта.
+        response = requests.post(types.Links.RAISE, headers=headers, data=payload, timeout=self.timeout)
+        logger.debug(f"Статус-код получения данных для поднятия лотов: {response.status_code}.")
+        if response.status_code != 200:
+            raise exceptions.StatusCodeIsNot200(response.status_code)
+        json_response = response.json()
+        logger.debug(f"Ответ от FunPay (запрос modal-формы поднятия лотов): {json_response}")
+        return json_response
 
-    html_response = response.content.decode()
-    parser = BeautifulSoup(html_response, "lxml")
+    def raise_game_categories(self, category: types.Category, exclude: list[int] | None = None) -> types.RaiseResponse:
+        """
+        Поднимает лоты всех категорий игры category.game_id.
+        !ВНИМЕНИЕ! Для поднятия лотов необходимо, чтобы category.game_id != None.
 
-    username = parser.find("div", {"class": "user-link-name"})
-    if username is None:
-        raise Exception  # todo: создать и добавить кастомное исключение: невалидный токен.
-    username = username.text
+        :param category: экземпляр класса Category.
+        :param exclude: список из ID категорий, которые не нужно поднимать.
+        :return: ответ FunPay.
+        """
+        check = self.request_lots_raise(category)
+        if check.get("error") and check.get("msg") and "Подождите" in check.get("msg"):
+            wait_time = utils.get_wait_time_from_raise_response(check.get("msg"))
+            return types.RaiseResponse(False, wait_time, [], check)
+        elif check.get("error"):
+            # Если вернулся ответ с ошибкой и это не "Подождите n времени" - значит творится какая-то дичь.
+            return types.RaiseResponse(False, 10, [], check)
+        elif check.get("error") is not None and not check.get("error"):
+            # Если была всего 1 категория и FunPay ее поднял без отправки modal-окна
+            return types.RaiseResponse(True, 3600, [category.title], check)
+        elif check.get("modal"):
+            # Если же появилась модалка, то парсим все чекбоксы и отправляем запрос на поднятие всех категорий, кроме тех,
+            # которые в exclude.
+            parser = BeautifulSoup(check.get("modal"), "html.parser")
+            category_ids = []
+            category_names = []
+            checkboxes = parser.find_all("div", {"class": "checkbox"})
+            for cb in checkboxes:
+                category_id = int(cb.find("input")["value"])
+                if exclude is None or category_id not in exclude:
+                    category_ids.append(category_id)
+                    category_name = cb.find("label").text
+                    category_names.append(category_name)
 
-    app_data = json.loads(parser.find("body")["data-app-data"])
-    userid = app_data["userId"]
-    csrf_token = app_data["csrf-token"]
+            headers = {
+                "accept": "*/*",
+                "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "cookie": f"locale=ru; golden_key={self.golden_key}",
+                "x-requested-with": "XMLHttpRequest",
+                "user-agent": self.user_agent
+            }
+            payload = {
+                "game_id": category.game_id,
+                "node_id": category.id,
+                "node_ids[]": category_ids
+            }
+            response = requests.post(types.Links.RAISE, headers=headers, data=payload, timeout=self.timeout)
+            logger.debug(f"Статус-код поднятия лотов: {response.status_code}.")
+            if not response.status_code == 200:
+                raise exceptions.StatusCodeIsNot200(response.status_code)
+            json_response = response.json()
+            logger.debug(f"Ответ FunPay (поднятие категорий): {json_response}.")
+            if not json_response.get("error"):
+                return types.RaiseResponse(True, 3600, category_names, json_response)
+            else:
+                return types.RaiseResponse(False, 10, [], json_response)
 
-    active_sales = parser.find("span", {"class": "badge badge-trade"})
-    active_sales = int(active_sales.text) if active_sales else 0
+    def refund_order(self, order_id: str) -> None:
+        """
+        Оформляет возврат средств за ордер.
+        :param order_id: ID ордера.
+        """
 
-    balance = parser.find("span", {"class": "badge badge-balance"})
-    balance_count = float(balance.text.split(" ")[0]) if balance else 0
-    balance_currency = balance.text.split(" ")[1] if balance else None
+        headers = {
+            "accept": "*/*",
+            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "x-requested-with": "XMLHttpRequest",
+            "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}",
+            "user-agent": self.user_agent
+        }
 
-    cookies = response.cookies.get_dict()
-    session_id = cookies["PHPSESSID"]
+        payload = {
+            "id": order_id,
+            "csrf_token": self.csrf_token
+        }
+        response = requests.post(types.Links.REFUND, headers=headers, data=payload, timeout=self.timeout)
+        if not response.status_code == 200:
+            raise exceptions.StatusCodeIsNot200(response.status_code)
 
-    return Account(app_data=app_data, id_=userid, username=username, balance=balance_count, currency=balance_currency,
-                   active_orders=active_sales, golden_key=token, csrf_token=csrf_token, session_id=session_id,
-                   last_update=int(time.time()))
+    def is_authorized(self):
+        return self.__authorized
+
+    def update_chats(self, chats_html: str):
+        self.saved_html_chats = chats_html
