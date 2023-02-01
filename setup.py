@@ -3,7 +3,7 @@ from sys import platform
 
 
 common_packages = [
-    "psutil>=5.9.4"
+    "psutil>=5.9.4",
     "beautifulsoup4>=4.11.1",
     "colorama>=0.4.6",
     "requests>=2.28.1",
