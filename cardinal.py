@@ -6,6 +6,7 @@ if TYPE_CHECKING:
 import importlib.util
 import configparser
 import traceback
+import datetime
 import logging
 import random
 import time
@@ -33,7 +34,9 @@ class Cardinal:
                  raw_auto_response_config: ConfigParser):
 
         self.instance_id = random.randint(0, 999999)
-        self.secret_key = random.randint(10000000, 999999999)
+
+        # {"key": "lot_name"}
+        self.delivery_tests = {}
 
         # Конфиги
         self.MAIN_CFG = main_config
@@ -53,7 +56,11 @@ class Cardinal:
         # В данном свойстве хранятся интервалы до следующего поднятия категорий игры.
         # формат хранения: {id игры: следующее время поднятия}
         self.raise_time = {}
-        self.block_list = []
+        self.lots: list[FunPayAPI.types.Lot] = []
+        self.telegram_lots: list[FunPayAPI.types.Lot] = []
+        self.categories: list[FunPayAPI.types.Category] = []
+        self.last_info_update = datetime.datetime.now()
+        self.block_list: list[str] = []
 
         # Хэндлеры
         self.post_init_handlers = []
@@ -62,7 +69,11 @@ class Cardinal:
         self.pre_stop_handlers = []
         self.post_stop_handlers = []
 
+        self.init_message_handlers = []
+        self.messages_list_changed_handlers = []
         self.new_message_handlers = []
+        self.init_order_handlers = []
+        self.orders_list_changed_handlers = []
         self.new_order_handlers = []
         self.order_status_changed_handlers = []
 
@@ -78,8 +89,12 @@ class Cardinal:
             "REGISTER_TO_POST_START": self.post_start_handlers,
             "REGISTER_TO_PRE_STOP": self.pre_stop_handlers,
             "REGISTER_TO_POST_STOP": self.post_stop_handlers,
+            "REGISTER_TO_INIT_MESSAGE": self.init_message_handlers,
+            "REGISTER_TO_MESSAGES_LIST_CHANGED": self.messages_list_changed_handlers,
             "REGISTER_TO_NEW_MESSAGE": self.new_message_handlers,
+            "REGISTER_TO_INIT_ORDER": self.init_order_handlers,
             "REGISTER_TO_NEW_ORDER": self.new_order_handlers,
+            "REGISTER_TO_ORDERS_LIST_CHANGED": self.orders_list_changed_handlers,
             "REGISTER_TO_ORDER_STATUS_CHANGED": self.order_status_changed_handlers,
             "REGISTER_TO_PRE_DELIVERY": self.pre_delivery_handlers,
             "REGISTER_TO_POST_DELIVERY": self.post_delivery_handlers,
@@ -113,16 +128,31 @@ class Cardinal:
                 logger.warning("Повторю попытку через 2 секунды...")
                 time.sleep(2)
 
-    def __init_lots_and_categories(self) -> None:
+    def __init_lots_and_categories(self, infinite_polling: bool = True, attempts: int = 0,
+                                   update_telegram_lots: bool = True,
+                                   update_cardinal_lots: bool = True) -> bool:
         """
         Загружает данные о лотах категориях аккаунта + восстанавливает game_id каждой категории из кэша, либо
         отправляет дополнительные запросы к FunPay. (self.categories)
 
-        :return: None
+        :param infinite_polling: бесконечно посылать запросы, пока не будет получен ответ (игнорировать макс. кол-во
+        попыток)
+
+        :param attempts: максимальное кол-во попыток.
+
+        :param update_telegram_lots: обновить информацию о лотах для TG ПУ.
+
+        :param update_cardinal_lots: обновить информацию о лотах и категориях для всего кардинала (+ хэндлеров).
+
+        :return: True, если информация обновлена, False, если превышено макс. кол-во попыток.
         """
         logger.info("Получаю данные о лотах и категориях...")
+        if infinite_polling:
+            count = 1
+        else:
+            count = attempts
         # Получаем категории аккаунта.
-        while True:
+        while count:
             try:
                 user_lots_info = FunPayAPI.users.get_user(self.account.id,
                                                           user_agent=self.MAIN_CFG["FunPay"]["user_agent"])
@@ -135,16 +165,27 @@ class Cardinal:
                 logger.error("Не удалось загрузить данные о категориях аккаунта: превышен тайм-аут ожидания.")
                 logger.warning("Повторю попытку через 2 секунды...")
                 time.sleep(2)
+                if not infinite_polling:
+                    count -= 1
             except FunPayAPI.exceptions.StatusCodeIsNot200 as e:
                 logger.error(e)
                 logger.warning("Повторю попытку через 2 секунды...")
                 time.sleep(2)
+                if not infinite_polling:
+                    count -= 1
             except:
                 logger.error("Произошла непредвиденная ошибка при получении данных о лотах и категориях. "
                              "Подробнее а файле logs/log.log")
                 logger.debug(traceback.format_exc())
                 logger.warning("Повторю попытку через 2 секунды...")
                 time.sleep(2)
+                if not infinite_polling:
+                    count -= 1
+
+        if not count:
+            logger.error(f"Произошло ошибка при получении данных о лотах и категориях: "
+                         f"превышено кол-во попыток ({attempts}).")
+            return False
 
         # Привязываем к каждой категории её game_id. Если категория кэширована - берем game_id из кэша,
         # если нет - делаем запрос к FunPay.
@@ -165,7 +206,11 @@ class Cardinal:
 
             logger.warning(f"Доп. данные о категории \"{cat.title}\" не найдены в кэше.")
             logger.info("Отправляю запрос к FunPay...")
-            while True:
+            if infinite_polling:
+                count = 1
+            else:
+                count = attempts
+            while count:
                 try:
                     game_id = self.account.get_category_game_id(cat)
                     categories[index].game_id = game_id
@@ -180,26 +225,46 @@ class Cardinal:
                                  f"превышен тайм-аут ожидания.")
                     logger.warning("Повторю попытку через 2 секунды...")
                     time.sleep(2)
+                    if not infinite_polling:
+                        count -= 1
                 except FunPayAPI.exceptions.StatusCodeIsNot200 as e:
                     logger.error(e)
                     logger.warning("Повторю попытку через 2 секунды...")
                     time.sleep(2)
+                    if not infinite_polling:
+                        count -= 1
                 except:
                     logger.error(f"Не удалось получить ID игры, к которой относится категория \"{cat.title}\": "
                                  f"неизвестная ошибка.")
                     logger.debug(traceback.format_exc())
                     logger.warning("Повторю попытку через 2 секунды...")
                     time.sleep(2)
+                    if not infinite_polling:
+                        count -= 1
 
-        self.categories = categories
-        self.lots = lots
+            if not count:
+                logger.error(f"Не удалось получить ID игры, к которой относится категория \"{cat.title}\": "
+                             f"превышено кол-во попыток ({attempts}).")
+                return False
+
+        if update_cardinal_lots:
+            self.categories = categories
+            self.lots = lots
+            self.lots_ids = [i.id for i in self.lots]
+            logger.info(f"Кардинал обновил информацию об активных лотах "
+                        f"$YELLOW({len(lots)})$RESET и категориях $YELLOW({len(categories)})$RESET. "
+                        f"Изменения применены к авто-восстановлению и авто-деактивации.")
+        if update_telegram_lots:
+            self.telegram_lots = lots
+            self.last_info_update = datetime.datetime.now()
+            logger.info(f"Обновлена информация об активных лотах $YELLOW({len(lots)})$RESET для ПУ TG.")
         logger.info("Кэширую данные о категориях...")
-        cardinal_tools.cache_categories(self.categories)
+        cardinal_tools.cache_categories(self.categories, cached_categories)
+        return True
 
     def __init_telegram(self) -> None:
         """
         Инициализирует Telegram бота.
-        :return:
         """
         self.telegram = telegram.bot.TGBot(self)
         self.telegram.init()
@@ -248,12 +313,11 @@ class Cardinal:
     def raise_lots(self) -> int:
         """
         Пытается поднять лоты.
+
         :return: предположительное время, когда нужно снова запустить данную функцию.
         """
         # Минимальное время до следующего вызова данной функции.
         min_next_time = -1
-        if not self.categories:
-            time.sleep(10)
         for cat in self.categories:
             # Если game_id данной категории уже находится в self.game_ids, но время поднятия категорий
             # данной игры еще не настало - пропускам эту категорию.
@@ -293,28 +357,47 @@ class Cardinal:
                 self.run_handlers(self.post_lots_raise_handlers, (self, cat.game_id, response))
         return min_next_time
 
-    def send_message(self, msg: FunPayAPI.types.Message):
+    def send_message(self, msg: FunPayAPI.types.Message) -> bool:
         """
-        Отправляет сообщение в чат c ID node_id. Если сообщение доставлено - добавляет его в список последних сообщений
-        в runner.
+        Отправляет сообщение в чат FunPay.
 
         :param msg: объект MessageEvent.
-        :return:
+        :return: True, если сообщение доставлено, False, если нет.
         """
         if self.MAIN_CFG["Other"]["watermark"]:
             msg.text = f"{self.MAIN_CFG['Other']['watermark']}\n" + msg.text
 
-        response = self.account.send_message(msg)
-        if response.get("response") and response.get("response").get("error") is None:
-            self.runner.update_saved_message(msg)
-            logger.info(f"Отправил сообщение в чат $YELLOW{msg.node_id}.")
-            return True
-        else:
-            logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET Подробнее "
-                           f"в файле logs/log.log")
-            return False
+        lines = msg.text.split("\n")
+        lines = [i.strip() for i in lines if i.strip()]
+        msg.text = "\n".join(lines)
+
+        while "\n\n\n" in msg.text:
+            msg.text = msg.text.replace("\n\n\n", "\n\n")
+
+        lines = msg.text.split("\n")
+
+        split_messages = []
+        while lines:
+            text = "\n".join(lines[:20])
+            msg_obj = FunPayAPI.types.Message(text, msg.node_id, msg.chat_with, msg.unread)
+            split_messages.append(msg_obj)
+            lines = lines[20:]
+
+        for i in split_messages:
+            response = self.account.send_message(i)
+            if response.get("response") and response.get("response").get("error") is None:
+                self.runner.update_saved_message(msg)
+                logger.info(f"Отправил сообщение в чат $YELLOW{msg.node_id}.")
+            else:
+                logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET Подробнее "
+                               f"в файле logs/log.log")
+                return False
+        return True
 
     def update_session(self):
+        """
+        Обновляет данные аккаунта (баланс, токены и т.д.)
+        """
         attempts = 3
         while attempts:
             try:
@@ -345,16 +428,25 @@ class Cardinal:
 
     # Бесконечные циклы
     def process_events(self):
+        """
+        Запускает хэндлеры, привязанные к тому или иному событию.
+        """
         instance_id = self.run_id
-        for event in self.runner.listen():
+        events_handlers = {
+            FunPayAPI.types.EventTypes.INITIAL_MESSAGE: self.init_message_handlers,
+            FunPayAPI.types.EventTypes.MESSAGES_LIST_CHANGED: self.messages_list_changed_handlers,
+            FunPayAPI.types.EventTypes.NEW_MESSAGE: self.new_message_handlers,
+
+            FunPayAPI.types.EventTypes.INITIAL_ORDER: self.init_order_handlers,
+            FunPayAPI.types.EventTypes.ORDERS_LIST_CHANGED: self.orders_list_changed_handlers,
+            FunPayAPI.types.EventTypes.NEW_ORDER: self.new_order_handlers,
+            FunPayAPI.types.EventTypes.ORDER_STATUS_CHANGED: self.order_status_changed_handlers,
+        }
+
+        for event in self.runner.listen(delay=int(self.MAIN_CFG["Other"]["requestsDelay"])):
             if instance_id != self.run_id:
                 break
-            if event.type == FunPayAPI.types.EventTypes.NEW_MESSAGE:
-                self.run_handlers(self.new_message_handlers, (self, event))
-            elif event.type == FunPayAPI.types.EventTypes.NEW_ORDER:
-                self.run_handlers(self.new_order_handlers, (self, event))
-            elif event.type == FunPayAPI.types.EventTypes.ORDER_STATUS_CHANGED:
-                self.run_handlers(self.order_status_changed_handlers, (self, event))
+            self.run_handlers(events_handlers[event.type], (self, event))
 
     def lots_raise_loop(self):
         """
@@ -362,7 +454,7 @@ class Cardinal:
         """
         logger.info("$CYANЦикл авто-поднятия лотов запущен (это не значит, что авто-поднятие лотов включено).")
         while True:
-            if not self.MAIN_CFG["FunPay"].getboolean("autoRaise"):
+            if not self.MAIN_CFG["FunPay"].getboolean("autoRaise") or not self.categories:
                 time.sleep(10)
                 continue
             try:
@@ -379,6 +471,9 @@ class Cardinal:
             time.sleep(delay)
 
     def update_session_loop(self):
+        """
+        Запускает бесконечный цикл обновления данных о пользователе.
+        """
         logger.info("$CYANЦикл обновления данных аккаунта запущен.")
         sleep_time = 3600
         while True:
@@ -427,23 +522,29 @@ class Cardinal:
         self.run_handlers(self.pre_start_handlers, (self, ))
         self.run_handlers(self.post_stop_handlers, (self, ))
 
-    def run_handlers(self, handlers: list[Callable], args) -> None:
+    def update_lots_and_categories(self):
+        """
+        Парсит лоты (для ПУ TG).
+        """
+        result = self.__init_lots_and_categories(infinite_polling=False, attempts=3, update_cardinal_lots=False)
+        return result
+
+    @staticmethod
+    def run_handlers(handlers_list: list[Callable], args) -> None:
         """
         Выполняет функции из списка handlers.
 
-        :param handlers: Список функций.
+        :param handlers_list: Список функций.
         :param args: аргументы для функций.
         """
-        for func in handlers:
+        for func in handlers_list:
             try:
                 func(*args)
             except:
                 logger.error("Произошла ошибка при выполнении хэндлера. Подробнее в файле logs/log.log.")
                 logger.debug(traceback.format_exc())
 
-    def save_config(self, config: configparser.ConfigParser, file_path: str):
+    @staticmethod
+    def save_config(config: configparser.ConfigParser, file_path: str):
         with open(file_path, "w", encoding="utf-8") as f:
             config.write(f)
-
-    def update_secret_key(self):
-        self.secret_key = random.randint(10000000, 999999999)

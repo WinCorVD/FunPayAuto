@@ -1,3 +1,7 @@
+"""
+В данном модуле описаны все типы пакета FunPayAPI.
+"""
+
 from enum import Enum
 import time
 
@@ -17,10 +21,28 @@ class Links:
 class EventTypes(Enum):
     """
     Типы событий.
+
+    EventTypes.INITIAL_MESSAGE - обнаружено новое сообщение (при первом запросе Runner'а).
+
+    EventTypes.MESSAGES_LIST_CHANGED - список чатов и/или содержимое одного/нескольких чатов изменилось.
+
+    EventTypes.NEW_MESSAGE - в чате обнаружено новое сообщение.
+
+    EventTypes.INITIAL_ORDER - обнаружен новый заказ (при первом запросе Runner'а).
+
+    EventTypes.ORDERS_LIST_CHANGED - список заказов и/или статус одного/нескольких заказов изменился.
+
+    EventTypes.NEW_ORDER - в списке заказов обнаружен новый заказ.
+
+    EventTypes.ORDER_STATUS_CHANGED - статус заказа изменился.
     """
-    NEW_MESSAGE = 0
-    NEW_ORDER = 1
-    ORDER_STATUS_CHANGED = 2
+    INITIAL_MESSAGE = 0
+    MESSAGES_LIST_CHANGED = 1
+    NEW_MESSAGE = 2
+    INITIAL_ORDER = 3
+    ORDERS_LIST_CHANGED = 4
+    NEW_ORDER = 5
+    ORDER_STATUS_CHANGED = 6
 
 
 class CategoryTypes(Enum):
@@ -28,6 +50,7 @@ class CategoryTypes(Enum):
     Типы категорий FunPay.
 
     CategoryTypes.LOT - стандартный лот.
+
     CategoryTypes.CURRENCY - лот с игровой валютой (их нельзя поднимать).
     """
     LOT = 0
@@ -39,7 +62,9 @@ class OrderStatuses(Enum):
     Состояния ордеров.
 
     OrderStatuses.OUTSTANDING - ожидает выполнения.
+
     OrderStatuses.COMPLETED - выполнен.
+
     OrderStatuses.REFUND - запрошен возврат средств.
     """
     OUTSTANDING = 0
@@ -49,7 +74,7 @@ class OrderStatuses(Enum):
 
 class Order:
     """
-    Класс, описывающий ордер.
+    Класс, хранящий информацию о заказе.
     """
     def __init__(self, html: str,
                  id_: str,
@@ -59,12 +84,19 @@ class Order:
                  buyer_id: int,
                  status: OrderStatuses):
         """
-        :param html: HTML код ордера.
-        :param id_: ID ордера.
-        :param title: Краткое описание ордера.
-        :param price: Оплаченная сумма за ордер.
-        :param buyer_username: Псевдоним покупателя.
+        :param html: HTML код заказа.
+
+        :param id_: ID заказа.
+
+        :param title: Краткое описание заказа.
+
+        :param price: Оплаченная сумма за заказ.
+
+        :param buyer_username: Никнейм покупателя.
+
         :param buyer_id: ID покупателя.
+
+        :param status: статус заказа.
         """
         self.html = html
         self.id = id_
@@ -77,17 +109,22 @@ class Order:
 
 class Message:
     """
-    Класс, описывающий сообщение.
+    Класс, хранящий информацию о сообщении.
     """
-    def __init__(self, text: str, node_id: int, chat_with: str | None):
+    def __init__(self, text: str, node_id: int, chat_with: str | None, unread: bool = False):
         """
-        :param node_id: ID чата.
         :param text: текст сообщения.
-        :param chat_with: никнейм пользователя, из переписки с которым получено сообщение.
+
+        :param node_id: ID чата.
+
+        :param chat_with: никнейм пользователя, из чата с которым получено сообщение.
+
+        :param unread: установлен ли флаг "unread" у чата, в котором получено сообщение (на момент получения сообщения)
         """
         self.node_id = node_id
         self.text = text
         self.chat_with = chat_with
+        self.unread = unread
 
 
 class Lot:
@@ -102,11 +139,16 @@ class Lot:
                  price: str):
         """
         :param category_id: ID категории, к которой относится лот.
+
         :param game_id: ID игры, к которой относится лот.
+
         :param id_: ID лота.
+
         :param title: название лота.
+
         :param price: цена лота.
         """
+        # todo: добавить html-код лота.
         self.category_id = category_id
         self.game_id = game_id
         self.id = id_
@@ -122,10 +164,15 @@ class Category:
                  type_: CategoryTypes):
         """
         :param id_: ID категории.
+
         :param game_id: ID игры, к которой относится категория.
+
         :param title: название категории.
+
         :param edit_lots_link: ссылка на страницу редактирования лотов данной категории.
+
         :param public_link: ссылка на все лоты всех пользователей в данной категории.
+
         :param type_: тип категории.
         """
         self.id = id_
@@ -138,12 +185,14 @@ class Category:
 
 class Event:
     """
-    Базовый класс, описывающий событие.
+    Базовый класс события.
     """
     def __init__(self, event_type: EventTypes, event_time: int, tag: str | None):
         """
         :param event_type: тип события.
+
         :param event_time: время события.
+
         :param tag: тег runner'а.
         """
         self.type = event_type
@@ -151,26 +200,84 @@ class Event:
         self.tag = tag
 
 
+class InitialMessageEvent(Event):
+    """
+    Класс события: обнаружено новое сообщение (при первом запросе Runner'а).
+    """
+    def __init__(self, message_obj: Message, tag: str):
+        """
+        :param message_obj: экземпляр класса, описывающий сообщение.
+
+        :param tag: тег runner'а.
+        """
+        super(InitialMessageEvent, self).__init__(EventTypes.INITIAL_MESSAGE, int(time.time()), tag)
+        self.message = message_obj
+
+
+class MessagesListChangedEvent(Event):
+    """
+    Класс события: список чатов и/или содержимое одного/нескольких чатов изменилось.
+    """
+    def __init__(self, tag: str):
+        """
+        :param tag: тэг runner'а.
+        """
+        super(MessagesListChangedEvent, self).__init__(EventTypes.MESSAGES_LIST_CHANGED, int(time.time()), tag)
+
+
 class NewMessageEvent(Event):
     """
-    Класс, описывающий событие: новое сообщение.
+    Класс события: в чате обнаружено новое сообщение.
     """
     def __init__(self, message_obj: Message, tag: str | None):
         """
-        :param message_obj: объект ордера.
+        :param message_obj: экземпляр класса, описывающий сообщение.
+
         :param tag: тег runner'а.
         """
         super(NewMessageEvent, self).__init__(EventTypes.NEW_MESSAGE, int(time.time()), tag)
         self.message = message_obj
 
 
+class InitialOrderEvent(Event):
+    """
+    Класс события: обнаружен новый заказ (при первом запросе Runner'а).
+    """
+    def __init__(self, order_obj: Order, tag: str):
+        """
+        :param order_obj: экземпляр класса, описывающий заказ.
+
+        :param tag: тег runner'а.
+        """
+        super(InitialOrderEvent, self).__init__(EventTypes.INITIAL_ORDER, int(time.time()), tag)
+        self.order = order_obj
+
+
+class OrdersListChangedEvent(Event):
+    """
+    Класс события: список заказов и/или статус одного/нескольких заказов изменился.
+    """
+    def __init__(self, buyer: int, seller: int, tag: str):
+        """
+        :param buyer: кол-во активных покупок.
+
+        :param seller: кол-во активных продаж.
+
+        :param tag: тэг runner'а.
+        """
+        super(OrdersListChangedEvent, self).__init__(EventTypes.ORDERS_LIST_CHANGED, int(time.time()), tag)
+        self.buyer = buyer
+        self.seller = seller
+
+
 class NewOrderEvent(Event):
     """
-    Класс, описывающий событие: новый ордер.
+    Класс события: в списке заказов обнаружен новый заказ.
     """
     def __init__(self, order_obj: Order, tag: str | None):
         """
-        :param order_obj: объект ордера.
+        :param order_obj: экземпляр класса, описывающий заказ.
+
         :param tag: тег runner'а.
         """
         super(NewOrderEvent, self).__init__(EventTypes.NEW_ORDER, int(time.time()), tag)
@@ -179,11 +286,12 @@ class NewOrderEvent(Event):
 
 class OrderStatusChangedEvent(Event):
     """
-    Класс, описывающий событие: изменение статуса ордера.
+    Класс события: статус заказа изменился.
     """
     def __init__(self, order_obj: Order, tag: str | None):
         """
-        :param order_obj: объект ордера.
+        :param order_obj: экземпляр класса, описывающий заказ.
+
         :param tag: тег runner'а.
         """
         super(OrderStatusChangedEvent, self).__init__(EventTypes.ORDER_STATUS_CHANGED, int(time.time()), tag)
@@ -197,8 +305,11 @@ class RaiseResponse:
     def __init__(self, complete: bool, wait: int, raised_category_names: list[str], funpay_response: dict):
         """
         :param complete: удалось ли поднять лоты.
+
         :param wait: примерное время ожидания до следующего поднятия.
-        :param raised_category_names: названия поднятых категорий (из modal-формы)
+
+        :param raised_category_names: названия поднятых категорий (из modal-формы).
+
         :param funpay_response: полный ответ Funpay.
         """
         self.complete = complete
@@ -208,6 +319,14 @@ class RaiseResponse:
 
 
 class UserInfo:
+    """
+    Класс, хранящий информацию о лотах и категориях пользователя.
+    """
     def __init__(self, lots: list[Lot], categories: list[Category]):
+        """
+        :param lots: список лотов пользователя.
+
+        :param categories: список категорий пользователя.
+        """
         self.lots = lots
         self.categories = categories

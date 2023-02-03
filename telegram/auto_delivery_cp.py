@@ -4,6 +4,8 @@
 """
 
 from __future__ import annotations
+
+import datetime
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
@@ -16,6 +18,8 @@ from Utils import cardinal_tools
 
 import traceback
 import itertools
+import random
+import string
 import logging
 import os
 
@@ -35,6 +39,23 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         offset = int(c.data.split(":")[1])
         bot.edit_message_text(f"Выберите интересующий вас лот.", c.message.chat.id, c.message.id,
                               reply_markup=keyboards.lots_list(cardinal, offset))
+        bot.answer_callback_query(c.id)
+
+    def open_funpay_lots_list(c: types.CallbackQuery):
+        """
+        Открывает список лотов FunPay.
+        """
+        offset = int(c.data.split(":")[1])
+        bot.edit_message_text(f"""Выберите интересующий вас лот (все лоты получена напрямую с вашей страницы FunPay).
+
+Учтите, что при обновлении списка лотов, <b><u>информация о лотах и категориях обновляется во всем Кардинале</u></b> """
+                              """(это повлияет на авто-поднятие, авто-восстановление и авто-деактивацию).
+
+"""
+                              f"""Время последнего обновления: """
+                              f"""<code>{cardinal.last_info_update.strftime("%d.%m.%Y %H:%M:%S")}</code>""",
+                              c.message.chat.id, c.message.id,
+                              parse_mode="HTML", reply_markup=keyboards.funpay_lots_list(cardinal, offset))
         bot.answer_callback_query(c.id)
 
     def act_add_lot(c: types.CallbackQuery):
@@ -59,13 +80,18 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
             return
 
         cardinal.AD_CFG.add_section(lot)
-        cardinal.AD_CFG.set(lot, "response", "Данному лоту нужно настроить сообщение для авто-выдачи :(")
+        cardinal.AD_CFG.set(lot, "response", """Спасибо за покупку, $username!
+
+Вот твой товар:
+$product""")
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
         lot_number = len(cardinal.AD_CFG.sections()) - 1
         keyboard = types.InlineKeyboardMarkup() \
             .add(Button("✏️ Редактировать лот", callback_data=f"edit_lot:{lot_number}:0"))
 
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
+                    f"$YELLOW[{lot}]$RESET в конфиг авто-выдачи.")
         bot.send_message(m.chat.id, f"✅ Добавлена новая секция <code>{tg_tools.format_text(lot)}</code> в конфиг "
                                     f"авто-выдачи.", parse_mode="HTML", reply_markup=keyboard)
 
@@ -75,7 +101,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         """
         offset = int(c.data.split(":")[1])
         bot.edit_message_text("Выберите интересующий вас файл с товарами.", c.message.chat.id, c.message.id,
-                              reply_markup=keyboards.products_file_list(offset))
+                              reply_markup=keyboards.products_files_list(offset))
         bot.answer_callback_query(c.id)
 
     def act_create_product_file(c: types.CallbackQuery):
@@ -83,7 +109,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         Активирует режим создания нового файла для товаров.
         """
         result = bot.send_message(c.message.chat.id, "Введите название для нового файла с товарами "
-                                                     "(можно без <code>.txt</code>).",
+                                                     "(можно без <code>.txt</code>).\n\n",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
         tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, "create_products_file")
         bot.answer_callback_query(c.id)
@@ -101,8 +127,9 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
             file_name += ".txt"
 
         if os.path.exists(f"storage/products/{file_name}"):
+            file_number = os.listdir("storage/products").index(file_name)
             keyboard = types.InlineKeyboardMarkup()\
-                .add(Button("✏️ Редактировать файл", callback_data=f"products_file:{file_name}:0"))
+                .add(Button("✏️ Редактировать файл", callback_data=f"products_file:{file_number}:0"))
             bot.send_message(m.chat.id,
                              f"❌ Файл <code>storage/products/{tg_tools.format_text(file_name)}</code> уже существует.",
                              parse_mode="HTML", reply_markup=keyboard)
@@ -110,9 +137,11 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
 
         with open(f"storage/products/{file_name}", "w", encoding="utf-8"):
             pass
-
+        file_number = os.listdir("storage/products").index(file_name)
         keyboard = types.InlineKeyboardMarkup() \
-            .add(Button("✏️ Редактировать файл", callback_data=f"products_file:{file_name}:0"))
+            .add(Button("✏️ Редактировать файл", callback_data=f"products_file:{file_number}:0"))
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET создал файл для товаров "
+                    f"$YELLOWstorage/products/{file_name}$RESET.")
         bot.send_message(m.chat.id, f"✅ Файл <code>storage/products/{tg_tools.format_text(file_name)}</code> создан.",
                          parse_mode="HTML", reply_markup=keyboard)
 
@@ -171,16 +200,19 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
 
         cardinal.AD_CFG.set(lot, "response", new_response)
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
-
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст выдачи "
+                    f"лота $YELLOW[{lot}]$RESET на $YELLOW\"{new_response}\"$RESET.")
         bot.send_message(m.chat.id, f"✅ Ответ для лота <code>{tg_tools.format_text(lot)}</code> изменен на "
-                                    f"<code>{tg_tools.format_text(new_response)}</code>", parse_mode="HTML")
+                                    f"<code>{tg_tools.format_text(new_response)}</code>"
+                                    "\n\n<b><u>ОБНОВИТЕ СООБЩЕНИЕ С НАСТРОЙКАМИ ЛОТА!</u></b>", parse_mode="HTML")
 
     def act_link_products_file(c: types.CallbackQuery):
         """
         Активирует режим привязки файла с товарами к лоту.
         """
         result = bot.send_message(c.message.chat.id, "Введите название файла с товарами.\nЕсли вы хотите отвязать файл "
-                                                     "с товарами, отправьте <code>-</code>",
+                                                     "с товарами, отправьте <code>-</code>\n\n"
+                                                     "Если файла не существует, он будет создан автоматически.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
         lot_number = c.data.split(":")[1]
         tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, "link_products_file",
@@ -200,6 +232,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         lot = cardinal.AD_CFG.sections()[lot_number]
         lot_obj = cardinal.AD_CFG[lot]
         file_name = m.text.strip()
+        exists = 1
 
         if "$product" not in lot_obj.get("response") and file_name != "":
             bot.send_message(m.chat.id, "❌ Невозможно привязать файл с товарами, т.к. в тексте ответа "
@@ -209,27 +242,44 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         if file_name == "-":
             cardinal.AD_CFG.remove_option(lot, "productsFileName")
             cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
+            logger.info(
+                f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET отвязал файл с товарами от "
+                f"лота $YELLOW[{lot}]$RESET.")
             bot.send_message(m.chat.id, f"✅ Файл с товарами "
-                                        f"успешно отвязан от лота <code>{tg_tools.format_text(lot)}</code>.",
+                                        f"успешно отвязан от лота <code>{tg_tools.format_text(lot)}</code>."
+                                        "\n\n<b><u>ОБНОВИТЕ СООБЩЕНИЕ С НАСТРОЙКАМИ ЛОТА!</u></b>",
                              parse_mode="HTML")
             return
-
         if not file_name.endswith(".txt"):
             file_name += ".txt"
 
         if not os.path.exists(f"storage/products/{file_name}"):
-            bot.send_message(m.chat.id, f"❌ Файл <code>storage/products/{tg_tools.format_text(file_name)}</code> "
-                                        f"не существует.",
-                             parse_mode="HTML")
-            return
+            exists = 0
+            with open(f"storage/products/{file_name}", "w", encoding="utf-8") as f:
+                pass
 
         cardinal.AD_CFG.set(lot, "productsFileName", file_name)
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
-        bot.send_message(m.chat.id, f"✅ Файл с товарами "
-                                    f"<code>storage/products/{tg_tools.format_text(file_name)}</code> "
-                                    f"успешно привязан к лоту <code>{tg_tools.format_text(lot)}</code>.",
-                         parse_mode="HTML")
+        if exists:
+            logger.info(
+                f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET привязал файл с товарами "
+                f"$YELLOWstorage/products/{file_name}$RESET к лоту $YELLOW[{lot}]$RESET.")
+            bot.send_message(m.chat.id, f"✅ Файл с товарами "
+                                        f"<code>storage/products/{tg_tools.format_text(file_name)}</code> "
+                                        f"успешно привязан к лоту <code>{tg_tools.format_text(lot)}</code>."
+                                        "\n\n<b><u>ОБНОВИТЕ СООБЩЕНИЕ С НАСТРОЙКАМИ ЛОТА!</u></b>",
+                             parse_mode="HTML")
+        else:
+            logger.info(
+                f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET создал и привязал файл с "
+                f"товарами $YELLOWstorage/products/{file_name}$RESET к лоту $YELLOW[{lot}]$RESET.")
+            bot.send_message(m.chat.id, f"✅ Файл с товарами "
+                                        f"<code>storage/products/{tg_tools.format_text(file_name)}</code> "
+                                        f"успешно <b><u>создан</u></b> и привязан к лоту "
+                                        f"<code>{tg_tools.format_text(lot)}</code>."
+                                        "\n\n<b><u>ОБНОВИТЕ СООБЩЕНИЕ С НАСТРОЙКАМИ ЛОТА!</u></b>",
+                             parse_mode="HTML")
 
     def switch_lot_setting(c: types.CallbackQuery):
         """
@@ -246,14 +296,48 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         lot = cardinal.AD_CFG.sections()[lot_number]
         lot_obj = cardinal.AD_CFG[lot]
         if lot_obj.get(param) in [None, "0"]:
-            cardinal.AD_CFG.set(lot, param, "1")
+            value = "1"
         else:
-            cardinal.AD_CFG.set(lot, param, "0")
+            value = "0"
+        cardinal.AD_CFG.set(lot, param, value)
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
-
+        logger.info(
+            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET изменил параметр $CYAN{param}$RESET "
+            f"секции $YELLOW[{lot}]$RESET на $YELLOW{value}$RESET.")
         bot.edit_message_text(tg_tools.generate_lot_info_text(lot, lot_obj),
                               c.message.chat.id, c.message.id, parse_mode="HTML",
                               reply_markup=keyboards.edit_lot(cardinal, lot_number, offset))
+        bot.answer_callback_query(c.id)
+
+    def create_lot_delivery_test(c: types.CallbackQuery):
+        """
+        Создает комбинацию [ключ: название лота] для теста авто-выдачи.
+        :param c:
+        :return:
+        """
+        lot_number = int(c.data.split(":")[1])
+
+        if lot_number > len(cardinal.AD_CFG.sections()) - 1:
+            bot.edit_message_text("❌ Не удалось обнаружить искомый лот. Обновите меню авто-выдачи.",
+                                  c.message.chat.id, c.message.id)
+            bot.answer_callback_query(c.id)
+            return
+
+        lot_name = cardinal.AD_CFG.sections()[lot_number]
+
+        simbols = string.ascii_letters + "0123456789"
+        key = "".join(random.choice(simbols) for _ in range(50))
+
+        cardinal.delivery_tests[key] = lot_name
+
+        logger.info(
+            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET создал одноразовый ключ для "
+            f"авто-выдачи лота $YELLOW[{lot_name}]$RESET: $CYAN{key}$RESET.")
+        bot.send_message(c.message.chat.id, f"✅ Одноразовый ключ для теста авто-выдачи лота "
+                                            f"<b>[</b><code>{tg_tools.format_text(lot_name)}</code><b>]</b> "
+                                            f"успешно создан. \n\n"
+                                            f"Для теста авто-выдачи введите команду снизу в любой чат FunPay (ЛС).\n\n"
+                                            f"<code>!автовыдача {key}</code>", parse_mode="HTML")
         bot.answer_callback_query(c.id)
 
     def del_lot(c: types.CallbackQuery):
@@ -273,8 +357,70 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         cardinal.AD_CFG.remove_section(lot)
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
+        logger.info(
+            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET удалил секцию "
+            f"$YELLOW[{lot}]$RESET из конфига авто-выдачи.")
         bot.edit_message_text(f"Выберите интересующий вас лот.", c.message.chat.id, c.message.id,
                               reply_markup=keyboards.lots_list(cardinal, 0))
+        bot.answer_callback_query(c.id)
+
+    # Меню добавления лота с FunPay
+    def update_funpay_lots_list(c: types.CallbackQuery):
+        offset = int(c.data.split(":")[1])
+        new_msg = bot.send_message(c.message.chat.id,
+                                   "Обновляю данные о лотах и категориях (это может занять некоторое время)...")
+        bot.answer_callback_query(c.id)
+        result = cardinal.update_lots_and_categories()
+        if not result:
+            bot.edit_message_text("❌ Не удалось обновить данные о лотах и категориях. "
+                                  "Подробнее в файле <code>logs/log.log</code>.", new_msg.chat.id, new_msg.id,
+                                  parse_mode="HTML")
+            return
+        bot.delete_message(new_msg.chat.id, new_msg.id)
+        bot.edit_message_text(f"""Выберите интересующий вас лот (все лоты получена напрямую с вашей страницы FunPay).
+
+Учтите, что при обновлении списка лотов, <b><u>информация о лотах и категориях обновляется во всем Кардинале</u></b> """
+                              """(это повлияет на авто-поднятие, авто-восстановление и авто-деактивацию).
+
+"""
+                              f"""Время последнего обновления: """
+                              f"""<code>{cardinal.last_info_update.strftime("%d.%m.%Y %H:%M:%S")}</code>""",
+                              c.message.chat.id, c.message.id,
+                              parse_mode="HTML", reply_markup=keyboards.funpay_lots_list(cardinal, offset))
+
+    def add_funpay_lot(c: types.CallbackQuery):
+        lot_number = int(c.data.split(":")[1])
+
+        if lot_number > len(cardinal.telegram_lots) - 1:
+            bot.send_message("❌ Не удалось обнаружить искомый лот в памяти Кардинала. Обновите список лотов.",
+                             c.message.chat.id)
+            bot.answer_callback_query(c.id)
+            return
+
+        lot = cardinal.telegram_lots[lot_number]
+        if lot.title in cardinal.AD_CFG.sections():
+            bot.send_message(c.message.chat.id,
+                             f"❌ Лот <code>{tg_tools.format_text(lot.title)}</code> уже есть в конфиге авто-выдачи.",
+                             parse_mode="HTML")
+            bot.answer_callback_query(c.id)
+            return
+
+        cardinal.AD_CFG.add_section(lot.title)
+        cardinal.AD_CFG.set(lot.title, "response", """Спасибо за покупку, $username!
+
+Вот твой товар:
+$product""")
+        cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
+
+        lot_number = len(cardinal.AD_CFG.sections()) - 1
+        keyboard = types.InlineKeyboardMarkup() \
+            .add(Button("✏️ Редактировать лот", callback_data=f"edit_lot:{lot_number}:0"))
+
+        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET добавил секцию "
+                    f"$YELLOW[{lot}]$RESET в конфиг авто-выдачи.")
+        bot.send_message(c.message.chat.id,
+                         f"✅ Добавлена новая секция <code>{tg_tools.format_text(lot.title)}</code> в конфиг "
+                         f"авто-выдачи.", parse_mode="HTML", reply_markup=keyboard)
         bot.answer_callback_query(c.id)
 
     # Меню управления файлов с товарами.
@@ -283,13 +429,16 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         Открывает панель управления файлом с товарами.
         """
         split = c.data.split(":")
-        file_name, offset = split[1], int(split[2])
-        if not os.path.exists(f"storage/products/{file_name}"):
-            bot.edit_message_text(f"❌ Файл <code>storage/products/{file_name}</code> не обнаружен. "
-                                  f"Обновите меню авто-выдачи.",
+        file_number, offset = int(split[1]), int(split[2])
+        files = os.listdir("storage/products")
+        files = [i for i in files if i.endswith(".txt")]
+        if file_number > len(files)-1:
+            bot.edit_message_text(f"❌ Искомый файл не обнаружен. Обновите меню авто-выдачи.",
                                   c.message.chat.id, c.message.id, parse_mode="HTML")
             bot.answer_callback_query(c.id)
             return
+        file_name = files[file_number]
+
         products_amount = cardinal_tools.get_products_count(f"storage/products/{file_name}")
         delivery_objs = [i for i in cardinal.AD_CFG.sections() if
                          cardinal.AD_CFG[i].get("productsFileName") == file_name]
@@ -298,9 +447,11 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         
 <b><i>Товаров в файле:</i></b>  <code>{products_amount}</code>
 
-<b><i>Используется в лотах:</i></b> {", ".join(f"<code>{tg_tools.format_text(i)}</code>" for i in delivery_objs)}"""
+<b><i>Используется в лотах:</i></b> {", ".join(f"<code>{tg_tools.format_text(i)}</code>" for i in delivery_objs)}
+
+<i>Обновлено:</i>  <code>{datetime.datetime.now().strftime('%H:%M:%S')}</code>"""
         bot.edit_message_text(text, c.message.chat.id, c.message.id,
-                              reply_markup=keyboards.products_file_edit(file_name, offset),
+                              reply_markup=keyboards.products_file_edit(file_number, offset),
                               parse_mode="HTML")
         bot.answer_callback_query(c.id)
 
@@ -311,24 +462,26 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         result = bot.send_message(c.message.chat.id, "Отправьте товары, которые вы хотите "
                                   "добавить. Каждый товар должен быть с новой строки",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
-        file_name = c.data.split(":")[1]
+        file_number = int(c.data.split(":")[1])
         tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, "add_products_to_file",
-                          {"file_name": file_name})
+                          {"file_number": file_number})
         bot.answer_callback_query(c.id)
 
     def add_products_to_file(m: types.Message):
         """
         Добавляет товары в файл с товарами.
         """
-        file_name = tg.get_user_state(m.chat.id, m.from_user.id)["data"]["file_name"]
+        file_number = tg.get_user_state(m.chat.id, m.from_user.id)["data"]["file_number"]
         tg.clear_user_state(m.chat.id, m.from_user.id, True)
         products = m.text.strip()
-        if not os.path.exists(f"storage/products/{file_name}"):
-            bot.send_message(m.chat.id,
-                             f"❌ Файл <code>storage/products/{file_name}</code> не обнаружен. "
-                             f"Обновите меню авто-выдачи.",
-                             parse_mode="HTML")
+
+        files = os.listdir("storage/products")
+        files = [i for i in files if i.endswith(".txt")]
+        if file_number > len(files) - 1:
+            bot.edit_message_text(f"❌ Искомый файл не обнаружен. Обновите меню авто-выдачи.",
+                                  m.chat.id, m.id, parse_mode="HTML")
             return
+        file_name = files[file_number]
 
         products = list(itertools.filterfalse(lambda el: not el, products.split("\n")))
         if not products:
@@ -339,9 +492,12 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
             f.write("\n")
             f.write(products_text)
 
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил "
+                    f"$CYAN{len(products)}$RESET товар(-a, -oв) в файл $YELLOWstorage/products/{file_name}$RESET.")
         bot.send_message(m.chat.id,
                          f"✅ В файл <code>storage/products/{file_name}</code> добавлен(-о) "
-                         f"<code>{len(products)}</code> товар(-а / -ов).",
+                         f"<code>{len(products)}</code> товар(-а / -ов)."
+                         "\n\n<b><u>ОБНОВИТЕ СООБЩЕНИЕ С НАСТРОЙКАМИ ФАЙЛА С ТОВАРАМИ!</u></b>",
                          parse_mode="HTML")
 
     def send_products_file(c: types.CallbackQuery):
@@ -356,6 +512,8 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
             bot.answer_callback_query(c.id)
             return
         with open(f"storage/products/{file_name}", "r", encoding="utf-8") as f:
+            logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
+                        f"файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
             bot.send_document(c.message.chat.id, f)
             bot.answer_callback_query(c.id)
 
@@ -364,15 +522,16 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         Открывает суб-панель подтверждения удаления файла с товарами.
         """
         split = c.data.split(":")
-        file_name, offset = split[1], int(split[2])
-        if not os.path.exists(f"storage/products/{file_name}"):
-            bot.edit_message_text(f"❌ Файл <code>storage/products/{file_name}</code> не обнаружен. "
-                                  "Обновите меню авто-выдачи.",
+        file_number, offset = int(split[1]), int(split[2])
+        files = os.listdir("storage/products")
+        files = [i for i in files if i.endswith(".txt")]
+        if file_number > len(files) - 1:
+            bot.edit_message_text(f"❌ Искомый файл не обнаружен. Обновите меню авто-выдачи.",
                                   c.message.chat.id, c.message.id, parse_mode="HTML")
-            bot.answer_callback_query(c.id)
+            tg.answer_callback_query(c.id)
             return
         bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
-                                      reply_markup=keyboards.products_file_edit(file_name, offset, True))
+                                      reply_markup=keyboards.products_file_edit(file_number, offset, True))
         bot.answer_callback_query(c.id)
 
     def del_products_file(c: types.CallbackQuery):
@@ -380,13 +539,15 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         Удаляет файл с товарами.
         """
         split = c.data.split(":")
-        file_name, offset = split[1], int(split[2])
-        if not os.path.exists(f"storage/products/{file_name}"):
-            bot.edit_message_text(f"❌ Файл <code>storage/products/{file_name}</code> не обнаружен. "
-                                  "Обновите меню авто-выдачи.",
+        file_number, offset = int(split[1]), int(split[2])
+        files = os.listdir("storage/products")
+        files = [i for i in files if i.endswith(".txt")]
+        if file_number > len(files) - 1:
+            bot.edit_message_text(f"❌ Искомый файл не обнаружен. Обновите меню авто-выдачи.",
                                   c.message.chat.id, c.message.id, parse_mode="HTML")
-            bot.answer_callback_query(c.id)
+            tg.answer_callback_query(c.id)
             return
+        file_name = files[file_number]
 
         delivery_objs = [i for i in cardinal.AD_CFG.sections() if
                          cardinal.AD_CFG[i].get("productsFileName") == file_name]
@@ -402,7 +563,9 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
             os.remove(f"storage/products/{file_name}")
             bot.edit_message_text(f"Выберите интересующий вас файл с товарами.",
                                   c.message.chat.id, c.message.id,
-                                  reply_markup=keyboards.products_file_list(offset))
+                                  reply_markup=keyboards.products_files_list(offset))
+            logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET удалил "
+                        f"файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
             bot.answer_callback_query(c.id)
         except:
             bot.send_message(f"❌ Не удалось удалить файл <code>storage/products/{file_name}</code>. "
@@ -413,7 +576,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
 
     # Основное меню настроек авто-выдачи.
     tg.cbq_handler(open_lots_list, func=lambda c: c.data.startswith("lots:"))
-
+    tg.cbq_handler(open_funpay_lots_list, func=lambda c: c.data.startswith("funpay_lots:"))
     tg.cbq_handler(act_add_lot, func=lambda c: c.data == "add_lot")
     tg.msg_handler(add_lot, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, "add_lot"))
 
@@ -433,7 +596,12 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
     tg.msg_handler(link_products_file, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, "link_products_file"))
 
     tg.cbq_handler(switch_lot_setting, func=lambda c: c.data.startswith("switch_lot:"))
+    tg.cbq_handler(create_lot_delivery_test, func=lambda c: c.data.startswith("test_auto_delivery:"))
     tg.cbq_handler(del_lot, func=lambda c: c.data.startswith("del_lot:"))
+
+    # Меню добавления лота с FunPay
+    tg.cbq_handler(add_funpay_lot, func=lambda c: c.data.startswith("add_funpay_lot:"))
+    tg.cbq_handler(update_funpay_lots_list, func=lambda c: c.data.startswith("update_funpay_lots:"))
 
     # Меню управления файлов с товарами.
     tg.cbq_handler(open_products_file_action, func=lambda c: c.data.startswith("products_file:"))

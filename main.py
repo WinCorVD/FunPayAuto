@@ -1,33 +1,38 @@
-import logging.config
-import os
-import sys
-import colorama
-from colorama import Fore, Style
-import traceback
 import Utils.config_loader as cfg_loader
-from Utils.logger import CONFIG
-import Utils.exceptions as excs
+from colorama import Fore, Style
+import Utils.logger
+import logging.config
+import traceback
+import colorama
+import sys
+import json
+import os
 
 from cardinal import Cardinal
+import Utils.exceptions as excs
 
 
 # Инициируем цветной текст и логгер.
 colorama.init()
 if not os.path.exists("logs"):
     os.mkdir("logs")
-logging.config.dictConfig(CONFIG)
+
+with open("configs/logger_config.json") as f:
+    LOGGER_CONFIG = json.loads(f.read())
+logging.config.dictConfig(LOGGER_CONFIG)
 logging.raiseExceptions = False
 logger = logging.getLogger("main")
 logger.debug("-------------------Новый запуск.-------------------")
 
 print(f"""{Fore.MAGENTA}{Style.BRIGHT}█▀▀ █░█ █▄░█ █▀█ ▄▀█ █▄█  {Fore.CYAN} █▀▀ ▄▀█ █▀█ █▀▄ █ █▄░█ ▄▀█ █░░{Style.RESET_ALL}
 {Fore.MAGENTA}{Style.BRIGHT}█▀░ █▄█ █░▀█ █▀▀ █▀█ ░█░  {Fore.CYAN} █▄▄ █▀█ █▀▄ █▄▀ █ █░▀█ █▀█ █▄▄{Style.RESET_ALL}""")
-print(f"{Fore.RED}{Style.BRIGHT}v0.0.5b{Style.RESET_ALL}")
+print(f"{Fore.RED}{Style.BRIGHT}v0.0.5{Style.RESET_ALL}")
 print("\n")
 print(f"{Fore.MAGENTA}{Style.BRIGHT}By {Fore.BLUE}{Style.BRIGHT}Woopertail{Style.RESET_ALL}\n")
 print(f"{Fore.MAGENTA}{Style.BRIGHT} * GitHub: {Fore.BLUE}{Style.BRIGHT}github.com/woopertail/FunPayCardinal{Style.RESET_ALL}")
 print(f"{Fore.MAGENTA}{Style.BRIGHT} * Telegram: {Fore.BLUE}{Style.BRIGHT}t.me/funpay_cardinal")
 print(f"{Fore.MAGENTA}{Style.BRIGHT} * VK: {Fore.BLUE}{Style.BRIGHT}vk.com/woopertail")
+print(f"{Fore.MAGENTA}{Style.BRIGHT} * ИНСТРУКЦИЯ: {Fore.BLUE}{Style.BRIGHT}woopertail.ru")
 print("\n\n")
 
 
@@ -62,21 +67,20 @@ except Exception as e:
     sys.exit()
 
 # Запускаем основную программу Cardinal
-if __name__ == '__main__':
-    try:
-        main_program = Cardinal(
-            MAIN_CONFIG,
-            AUTO_DELIVERY_CONFIG,
-            AUTO_RESPONSE_CONFIG,
-            RAW_AUTO_RESPONSE_CONFIG
-        )
-        main_program.init()
-        main_program.run()
-    except KeyboardInterrupt:
-        logger.info("Завершаю программу...")
-        sys.exit()
-    except:
-        logger.critical("При работе Кардинала произошла необработанная ошибка. Подробнее в файле logs/log.log")
-        logger.debug(traceback.format_exc())
-        logger.critical("Завершаю программу...")
-        sys.exit()
+try:
+    main_program = Cardinal(
+        MAIN_CONFIG,
+        AUTO_DELIVERY_CONFIG,
+        AUTO_RESPONSE_CONFIG,
+        RAW_AUTO_RESPONSE_CONFIG
+    )
+    main_program.init()
+    main_program.run()
+except KeyboardInterrupt:
+    logger.info("Завершаю программу...")
+    sys.exit()
+except:
+    logger.critical("При работе Кардинала произошла необработанная ошибка. Подробнее в файле logs/log.log")
+    logger.debug(traceback.format_exc())
+    logger.critical("Завершаю программу...")
+    sys.exit()

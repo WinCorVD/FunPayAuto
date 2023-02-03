@@ -2,14 +2,28 @@
 В данном модуле написаны форматтеры для логгера и его конфигурация.
 """
 
-
-import re
-import logging
-import logging.handlers
 from colorama import Fore, Back, Style
+import logging.handlers
+import logging
+import re
 
 
 def add_colors(text: str) -> str:
+    """
+    Заменяет ключевые слова на коды цветов.
+
+    $YELLOW - желтый текст.
+
+    $CYAN - светло-голубой текст.
+
+    $MAGENTA - фиолетовый текст.
+
+    $BLUE - синий текст.
+
+    :param text: текст.
+
+    :return: цветной текст.
+    """
     colors = {
         "$YELLOW": Fore.YELLOW,
         "$CYAN": Fore.CYAN,
@@ -71,58 +85,3 @@ class FileLoggerFormatter(logging.Formatter):
         record.msg = msg
         formatter = logging.Formatter(self.log_format, self.time_format)
         return formatter.format(record)
-
-
-CONFIG = {
-    "version": 1,
-    "handlers": {
-        "file_handler": {
-            "class": "logging.handlers.TimedRotatingFileHandler",
-            "level": "DEBUG",
-            "formatter": "file_formatter",
-            "filename": "logs/log.log",
-            "when": "midnight",
-            "encoding": "utf-8"
-        },
-
-        "cli_handler": {
-            "class": "logging.StreamHandler",
-            "level": "INFO",
-            "formatter": "cli_formatter"
-        }
-    },
-
-    "formatters": {
-        "file_formatter": {
-            "()": "Utils.logger.FileLoggerFormatter"
-        },
-
-        "cli_formatter": {
-            "()": "Utils.logger.CLILoggerFormatter"
-        }
-    },
-
-    "loggers": {
-        "main": {
-            "handlers": ["cli_handler", "file_handler"],
-            "level": "DEBUG"
-        },
-        "FunPayAPI": {
-            "handlers": ["cli_handler", "file_handler"],
-            "level": "DEBUG"
-        },
-        "FPC": {
-            "handlers": ["cli_handler", "file_handler"],
-            "level": "DEBUG"
-        },
-        "TGBot": {
-            "handlers": ["cli_handler", "file_handler"],
-            "level": "DEBUG"
-        },
-        "TeleBot": {
-            "handlers": ["file_handler"],
-            "level": "ERROR",
-            "propagate": "False"
-        }
-    }
-}

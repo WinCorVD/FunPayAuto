@@ -17,6 +17,13 @@ class Account:
     Класс для работы с аккаунтом FunPay.
     """
     def __init__(self, golden_key: str, user_agent: str = "", timeout: float | int = 10.0):
+        """
+        :param golden_key: токен аккаунта.
+
+        :param user_agent: user-agent браузера, с которого был произведен вход в аккаунт.
+
+        :param timeout: тайм-аут ожидания ответа на запросы.
+        """
         self.golden_key: str = golden_key
         self.user_agent = user_agent
         self.timeout: float = timeout
@@ -40,10 +47,12 @@ class Account:
         """
         Получает / обновляет данные об аккаунте.
 
-        :param update_session_id: обновить ли session_id или использовать старый.
+        :param update_session_id: обновить self.session_id или использовать старый.
         """
-        headers = {"cookie": f"golden_key={self.golden_key}",
-                   "user-agent": self.user_agent}
+        headers = {
+            "cookie": f"golden_key={self.golden_key}",
+            "user-agent": self.user_agent
+        }
         if self.session_id and not update_session_id:
             headers["cookie"] += f"; PHPSESSID={self.session_id}"
 
@@ -83,7 +92,6 @@ class Account:
         self.username = username
         self.balance = balance
         self.currency = currency
-        self.csrf_token = csrf_token
         self.active_orders = active_orders
         self.csrf_token = csrf_token
         self.last_update = int(time.time())
@@ -97,11 +105,15 @@ class Account:
         """
         Получает список ордеров на аккаунте.
 
-        :param include_outstanding: включить в список оплаченные (но не завершенные) заказы.
+        :param include_outstanding: включить в список оплаченные (но незавершенные) заказы.
+
         :param include_completed: включить в список завершенные заказы.
+
         :param include_refund: включить в список заказы, за которые оформлен возврат.
+
         :param exclude: список ID заказов, которые нужно исключить из итогового списка.
-        :return: Список с ордерами.
+
+        :return: Список с заказами.
         """
         if not self.is_authorized():
             raise exceptions.NotAuthorized()
@@ -163,7 +175,8 @@ class Account:
         """
         Отправляет сообщение.
 
-        :param message_obj: объект сообщения.
+        :param message_obj: экземпляр класса, описывающий сообщение.
+
         :return: ответ FunPay.
         """
         headers = {
@@ -171,7 +184,9 @@ class Account:
             "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}",
             "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
             "x-requested-with": "XMLHttpRequest",
-            "user-agent": self.user_agent
+            "user-agent": self.user_agent,
+            "referer": f"https://funpay.com/chat/?node={message_obj.node_id}",
+            "origin": f"https://funpay.com"
         }
         request = {
             "action": "chat_message",
@@ -181,8 +196,18 @@ class Account:
                 "content": message_obj.text
             }
         }
+        objects = [
+            {"type": "chat_node",
+             "id": message_obj.node_id,
+             "tag": "00000000",
+             "data": {
+                 "node": message_obj.node_id,
+                 "last_message": -1,
+                 "content": ""}
+             }
+        ]
         payload = {
-            "objects": "",
+            "objects": json.dumps(objects),
             "request": json.dumps(request),
             "csrf_token": self.csrf_token
         }
@@ -203,10 +228,12 @@ class Account:
     def get_node_id_by_username(self, username: str, force_request: bool = False) -> int | None:
         """
         Парсит self.chats_html и ищет node_id чата по username'у.
-        Если self.chats_html is None -> делает запрос к FunPay (будет сделано в будущем).
+        todo: Если self.chats_html is None -> делает запрос к FunPay.
 
         :param username: никнейм пользователя (искомого чата).
-        :param force_request: пропустить ли поиск в self.chats_html и отправить ли сразу запрос к FunPay.
+
+        :param force_request: todo: пропустить ли поиск в self.chats_html и отправить ли сразу запрос к FunPay.
+
         :return: node_id чата или None, если чат не найден.
         """
         if not force_request and self.saved_html_chats is not None:
@@ -222,6 +249,7 @@ class Account:
         Получает ID игры, к которой относится категория.
 
         :param category: экземпляр класса Category.
+
         :return: ID игры, к которой относится категория.
         """
         if category.type == types.CategoryTypes.LOT:
@@ -257,7 +285,9 @@ class Account:
         Получает значения всех полей лота (в окне редактирования лота).
 
         :param lot_id: ID лота.
+
         :param game_id: ID игры, к которой относится лот.
+
         :return: словарь {"название поля": "значение поля"}.
         """
         headers = {
@@ -280,7 +310,7 @@ class Account:
         if not response.status_code == 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
         json_response = response.json()
-        logger.debug(f"Ответ от FunPay (получение данных о лоте): {json_response}")
+        # logger.debug(f"Ответ от FunPay (получение данных о лоте): {json_response}")
         parser = BeautifulSoup(json_response["html"], "html.parser")
 
         input_fields = parser.find_all("input")
@@ -311,10 +341,12 @@ class Account:
 
     def save_lot(self, lot_info: dict[str, str], active: bool = True) -> dict:
         """
-        Изменяет состояние лота (активное / неактивное).
+        Сохраняет лот.
 
-        :param lot_info: информация о полях лота, получаемая с помощью метода get_lot_info()
+        :param lot_info: информация о полях лота, получаемая с помощью метода get_lot_info().
+
         :param active: сделать ли лот активным.
+
         :return: ответ FunPay.
         """
         lot_info["location"] = "trade"
@@ -337,7 +369,7 @@ class Account:
             raise exceptions.StatusCodeIsNot200(response.status_code)
 
         json_response = response.json()
-        logger.debug(f"Ответ от FunPay (сохранение лота): {json_response}")
+        # logger.debug(f"Ответ от FunPay (сохранение лота): {json_response}")
         if json_response.get("error"):
             raise exceptions.LotNotUpdated(json_response)
         return json_response
@@ -349,7 +381,8 @@ class Account:
         !ВНИМАНИЕ! Если на аккаунте только 1 категория, относящаяся к игре category.game_id,
         то FunPay поднимет данную категорию в списке без отправления modal-формы с выбором других категорий.
 
-        :param category: экземпляр класса Category.
+        :param category: экземпляр класса, описывающий поднимаемую категорию.
+
         :return: ответ FunPay.
         """
         headers = {
@@ -377,8 +410,10 @@ class Account:
         Поднимает лоты всех категорий игры category.game_id.
         !ВНИМЕНИЕ! Для поднятия лотов необходимо, чтобы category.game_id != None.
 
-        :param category: экземпляр класса Category.
-        :param exclude: список из ID категорий, которые не нужно поднимать.
+        :param category: экземпляр класса, описывающий поднимаемую категорию.
+
+        :param exclude: список ID категорий, которые не нужно поднимать.
+
         :return: ответ FunPay.
         """
         check = self.request_lots_raise(category)
@@ -430,8 +465,9 @@ class Account:
 
     def refund_order(self, order_id: str) -> None:
         """
-        Оформляет возврат средств за ордер.
-        :param order_id: ID ордера.
+        Оформляет возврат средств за заказ.
+
+        :param order_id: ID заказа.
         """
 
         headers = {
@@ -454,4 +490,9 @@ class Account:
         return self.__authorized
 
     def update_chats(self, chats_html: str):
+        """
+        Обновляет сохраненный HTML чатов (для get_node_id_by_username)
+
+        :param chats_html: HTML чатов.
+        """
         self.saved_html_chats = chats_html

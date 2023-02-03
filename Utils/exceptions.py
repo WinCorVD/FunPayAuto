@@ -1,3 +1,8 @@
+"""
+В данном модуле описаны все кастомные исключения, которые райзятся при валидации конфигов.
+"""
+
+
 class ParamNotFoundError(Exception):
     """
     Исключение, которое райзится, если при обработке конфига не был найден искомый параметр.
@@ -33,7 +38,9 @@ class ValueNotValidError(Exception):
     def __init__(self, param_name: str, current_value: str, valid_values: list[str | None]):
         """
         :param param_name: название параметра.
+
         :param current_value: текущее значение.
+
         :param valid_values: допустимые значения.
         """
         self.param_name = param_name
@@ -92,8 +99,7 @@ class SectionNotFoundError(Exception):
 
 class SubCommandAlreadyExists(Exception):
     """
-    Исключение, которое райзится, если при обработке конфига авто-ответчика была найдена суб-команда,
-    которая уже существует
+    Исключение, которое райзится, если при обработке конфига авто-ответчика была найден дубликат суб-команды.
     """
     def __init__(self, command: str):
         self.command = command

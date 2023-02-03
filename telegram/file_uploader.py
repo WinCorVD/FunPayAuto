@@ -1,18 +1,22 @@
+"""
+В данном модуле реализован загрузчик файлов из телеграм чата.
+"""
+
 from __future__ import annotations
 from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from cardinal import Cardinal
     from telegram.bot import TGBot
 
-from telebot import types
 from telegram import telegram_tools as tg_tools, keyboards
+from telebot.types import InlineKeyboardButton as Button
 from Utils import config_loader as cfg_loader
-import traceback
-import logging
-
 from Utils import cardinal_tools
 import Utils.exceptions as excs
+from telebot import types
+import traceback
+import logging
+import os
 
 
 logger = logging.getLogger("TGBot")
@@ -23,7 +27,9 @@ def check_file(tg: TGBot, msg: types.Message) -> bool:
     Проверяет выгруженный файл. Чистит состояние пользователя. Отправляет сообщение в TG в зависимости от ошибки.
 
     :param tg: экземпляр TG бота.
+
     :param msg: экземпляр сообщения.
+
     :return: True, если все ок, False, если файл проверку не прошел.
     """
     tg.clear_user_state(msg.chat.id, msg.from_user.id, True)
@@ -42,9 +48,13 @@ def check_file(tg: TGBot, msg: types.Message) -> bool:
 def download_file(tg: TGBot, msg: types.Message, file_name: str = "temp_file.txt") -> bool:
     """
     Скачивает выгруженный файл и сохраняет его в папку storage/cache/.
+
     :param tg: экземпляр TG бота.
+
     :param msg: экземпляр сообщения.
+
     :param file_name: название сохраненного файла.
+
     :return: True, если все ок, False, при ошибке.
     """
     tg.bot.send_message(msg.chat.id, "⏬ Загружаю файл...")
@@ -63,6 +73,13 @@ def download_file(tg: TGBot, msg: types.Message, file_name: str = "temp_file.txt
 
 
 def upload_products_file(cardinal: Cardinal, msg: types.Message):
+    """
+    Загружает файл с товарами.
+
+    :param cardinal: экземпляр кардинала.
+
+    :param msg: экземпляр сообщения.
+    """
     tg = cardinal.telegram
     bot = tg.bot
     if not check_file(tg, msg):
@@ -92,14 +109,25 @@ def upload_products_file(cardinal: Cardinal, msg: types.Message):
                          "<code>logs/log.log</code>.", parse_mode="HTML")
         logger.debug(traceback.format_exc())
         return
-
+    file_number = os.listdir("storage/products").index(file_name)
+    keyboard = types.InlineKeyboardMarkup() \
+        .add(Button("✏️ Редактировать файл", callback_data=f"products_file:{file_number}:0"))
+    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
+                f"загрузил в бота файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
     bot.send_message(msg.chat.id,
                      f"✅ Файл с товарами <code>storage/products/{file_name}</code> успешно загружен. "
                      f"Товаров в файле: <code>{products_count}.</code>",
-                     parse_mode="HTML")
+                     parse_mode="HTML", reply_markup=keyboard)
 
 
 def upload_auto_response_config(cardinal: Cardinal, msg: types.Message):
+    """
+    Загружает, проверяет и устанавливает конфиг авто-выдачи.
+
+    :param cardinal: экземпляр кардинала.
+
+    :param msg: экземпляр сообщения.
+    """
     tg = cardinal.telegram
     bot = tg.bot
     if not check_file(tg, msg):
@@ -130,10 +158,19 @@ def upload_auto_response_config(cardinal: Cardinal, msg: types.Message):
     cardinal.RAW_AR_CFG = raw_new_config
     cardinal.AR_CFG = new_config
     cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
+    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
+                f"загрузил в бота и установил конфиг авто-ответчика.")
     bot.send_message(msg.chat.id, "✅ Конфиг авто-ответчика успешно применен.")
 
 
 def upload_auto_delivery_config(cardinal: Cardinal, msg: types.Message):
+    """
+    Загружает, проверяет и устанавливает конфиг авто-выдачи.
+
+    :param cardinal: экземпляр кардинала.
+
+    :param msg: экземпляр сообщения.
+    """
     tg = cardinal.telegram
     bot = tg.bot
     if not check_file(tg, msg):
@@ -162,10 +199,19 @@ def upload_auto_delivery_config(cardinal: Cardinal, msg: types.Message):
 
     cardinal.AD_CFG = new_config
     cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
+    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
+                f"загрузил в бота и установил конфиг авто-выдачи.")
     bot.send_message(msg.chat.id, "✅ Конфиг авто-выдачи успешно применен.")
 
 
 def upload_main_config(cardinal: Cardinal, msg: types.Message):
+    """
+    Загружает и проверяет основной конфиг.
+
+    :param cardinal: экземпляр кардинала.
+
+    :param msg: экземпляр сообщения.
+    """
     tg = cardinal.telegram
     bot = tg.bot
     if not check_file(tg, msg):
@@ -193,6 +239,8 @@ def upload_main_config(cardinal: Cardinal, msg: types.Message):
         return
 
     cardinal.save_config(new_config, "configs/_main.cfg")
+    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
+                f"загрузил в бота основной конфиг.")
     bot.send_message(msg.chat.id, "✅ Основной конфиг успешно загружен. \n"
                                   "Необходимо перезагрузить бота, что бы применить изменения. \n"
                                   "Любое изменение основного конфига через переключатели на ПУ отменит все изменения.")

@@ -1,9 +1,13 @@
+"""
+В данном модуле написаны функции, которые позволяют получать информацию о пользователях без использования golden_key
+"""
+
+from bs4 import BeautifulSoup
 import requests
 import logging
-from bs4 import BeautifulSoup
 
-from . import types
 from . import exceptions
+from . import types
 
 
 logger = logging.getLogger("FunPayAPI.users")
@@ -11,12 +15,16 @@ logger = logging.getLogger("FunPayAPI.users")
 
 def get_user(user_id: int, include_currency: bool = False, user_agent: str = "", timeout: float = 10.0) -> types.UserInfo:
     """
-    Получает полную информацию о лотах пользователя.
+    Получает полную информацию о лотах и категориях пользователя.
 
     :param user_id: ID пользователя.
+
     :param include_currency: включать ли в список категории / лоты, относящиеся к игровой валюте.
+
     :param user_agent: user-agent.
+
     :param timeout: тайм-аут ожидания ответа.
+
     :return: экземпляр класса с информацией о пользователе.
     """
     headers = {

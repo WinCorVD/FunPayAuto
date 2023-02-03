@@ -1,23 +1,35 @@
-import json
-import requests
-import logging
+"""
+В данном модуле написан класс Runner'а.
+"""
+
 from bs4 import BeautifulSoup
-import time
-import traceback
 from typing import Iterator
 from copy import deepcopy
+import traceback
+import requests
+import logging
+import json
+import time
 
-from . import account
-from . import types
-from . import exceptions
 from . import utils
+from . import types
+from . import account
+from . import exceptions
 
 
 logger = logging.getLogger("FunPayAPI.runner")
 
 
 class Runner:
+    """
+    Класс для получения новых событий с FunPay.
+    """
     def __init__(self, account: account.Account, timeout: float | int = 10.0):
+        """
+        :param account: экземпляр класса аккаунта.
+
+        :param timeout: тайм-аут ожидания ответа на запросы.
+        """
         self.account = account
         self.timeout = timeout
 
@@ -31,7 +43,8 @@ class Runner:
 
     def get_updates(self) -> list[types.NewMessageEvent | types.NewOrderEvent | types.OrderStatusChangedEvent]:
         """
-        Получает список событий FunPay.
+        Получает и парсит список событий FunPay.
+
         :return: список событий.
         """
         if not self.account.is_authorized():
@@ -74,12 +87,15 @@ class Runner:
 
         for obj in json_response["objects"]:
             if obj.get("type") == "chat_bookmarks":
+                if not self.first_request:
+                    events.append(types.MessagesListChangedEvent(self.last_message_event_tag))
                 self.last_message_event_tag = obj.get("tag")
                 self.account.update_chats(obj["data"]["html"])
                 soup = BeautifulSoup(obj["data"]["html"], "html.parser")
                 messages = soup.find_all("a", {"class": "contact-item"})
 
                 for msg in messages:
+                    unread = True if "unread" in msg.get("class") else False
                     node_id = int(msg["data-id"])
                     message_text = msg.find("div", {"class": "contact-item-message"}).text
                     # Если это старое сообщение (сохранено в self.last_messages) -> пропускаем.
@@ -89,13 +105,19 @@ class Runner:
                             continue
 
                     chat_with = msg.find("div", {"class": "media-user-name"}).text
-                    message_obj = types.Message(text=message_text, node_id=node_id, chat_with=chat_with)
-                    event = types.NewMessageEvent(message_obj=message_obj, tag=self.last_message_event_tag)
+                    message_obj = types.Message(message_text, node_id, chat_with, unread)
+                    if self.first_request:
+                        event = types.InitialMessageEvent(message_obj, self.last_message_event_tag)
+                    else:
+                        event = types.NewMessageEvent(message_obj, self.last_message_event_tag)
                     events.append(event)
                     self.saved_messages[message_obj.node_id] = message_obj
 
             elif obj.get("type") == "orders_counters":
                 self.last_order_event_tag = obj.get("tag")
+                if not self.first_request:
+                    events.append(types.OrdersListChangedEvent(obj["data"]["buyer"], obj["data"]["seller"],
+                                                               self.last_order_event_tag))
                 attempts = 3
                 while attempts:
                     try:
@@ -117,8 +139,15 @@ class Runner:
 
                 for order in orders_list:
                     if order.id not in self.saved_orders:
-                        event = types.NewOrderEvent(order_obj=order, tag=self.last_order_event_tag)
-                        events.append(event)
+                        if self.first_request:
+                            event = types.InitialOrderEvent(order, self.last_order_event_tag)
+                            events.append(event)
+                        else:
+                            event = types.NewOrderEvent(order, self.last_order_event_tag)
+                            events.append(event)
+                            if order.status == types.OrderStatuses.COMPLETED:
+                                event2 = types.OrderStatusChangedEvent(order, self.last_order_event_tag)
+                                events.append(event2)
                         self.update_saved_order(order)
                     elif order.status != self.saved_orders[order.id].status:
                         event = types.OrderStatusChangedEvent(order_obj=order, tag=self.last_order_event_tag)
@@ -127,9 +156,8 @@ class Runner:
 
         if self.first_request:
             self.first_request = False
-            return []
-        else:
-            return events
+
+        return events
 
     def update_saved_message(self, message_obj: types.Message) -> None:
         """
@@ -143,13 +171,21 @@ class Runner:
 
     def update_saved_order(self, order: types.Order) -> None:
         """
-        Обновляет последнее сохраненное состояние ордера.
-        :param order: экземпляр класса, описывающего ордер.
+        Обновляет последнее сохраненное состояние заказа.
+
+        :param order: экземпляр класса, описывающего заказа.
         """
         self.saved_orders[order.id] = order
 
     def listen(self, delay: float | int = 6.0, ignore_exceptions: bool = True) \
-            -> Iterator[types.NewMessageEvent | types.NewOrderEvent | types.OrderStatusChangedEvent]:
+            -> Iterator[types.Event]:
+        """
+        "Слушает" FunPay в ожидании новых событий.
+
+        :param delay: задержка между запросами.
+
+        :param ignore_exceptions: игнорировать ошибки при выполнении запросов.
+        """
         if not self.account.is_authorized():
             raise exceptions.NotAuthorized()
 
@@ -162,6 +198,7 @@ class Runner:
                 if not ignore_exceptions:
                     raise e
                 else:
-                    logger.error("Произошла ошибка при получении событий.")
+                    logger.error("Произошла ошибка при получении событий "
+                                 "(ничего страшного, если это сообщение появляется нечасто).")
                     logger.debug(traceback.format_exc())
             time.sleep(delay)

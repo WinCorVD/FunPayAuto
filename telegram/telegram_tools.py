@@ -1,9 +1,11 @@
 """
 В данном модуле написаны инструменты, которыми пользуется Telegram бот.
 """
+
 import configparser
-import json
+import datetime
 import os.path
+import json
 
 
 ABOUT_TEXT = """FunPay Cardinal - это продвинутый бот для автоматизации рутинных действий.
@@ -44,10 +46,9 @@ def load_chat_ids() -> list[int]:
 
 def save_authorized_users(users: list[int]) -> None:
     """
-    Сохраняет id авторизированных пользователей в кэш.
+    Сохраняет ID авторизированных пользователей в кэш.
 
     :param users: список id авторизированных пользователей.
-    :return:
     """
     if not os.path.exists("storage/cache/"):
         os.makedirs("storage/cache/")
@@ -61,7 +62,6 @@ def save_chat_ids(chat_ids: list[int]) -> None:
     Сохраняет id чатов для уведомлений в кэш.
 
     :param chat_ids: список id чатов для уведомлений.
-    :return:
     """
     if not os.path.exists("storage/cache/"):
         os.makedirs("storage/cache/")
@@ -72,7 +72,7 @@ def save_chat_ids(chat_ids: list[int]) -> None:
 
 def format_text(text: str) -> str:
     """
-    Форматирует текст под HTML.
+    Форматирует текст под HTML разметку.
 
     :param text: текст.
     :return: форматированный текст.
@@ -111,6 +111,15 @@ def generate_help_text(commands_json: dict) -> str:
 
 
 def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) -> str:
+    """
+    Генерирует текст с информацией о лоте.
+
+    :param lot_name: название лота.
+
+    :param lot_obj: секция лота в конфиге авто-выдачи.
+
+    :return: сгенерированный текст с информацией о лоте.
+    """
     if lot_obj.get("productsFileName") is None:
         file_path = "<b><u>не привязан.</u></b>"
     else:
@@ -129,5 +138,7 @@ def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) ->
                                                else "<b><u>Да.</u></b>"}
 
 <b><i>Авто-деактивация отключена: </i></b> {"<b><u>Нет.</u></b>" if lot_obj.get("disableAutoDisable") in [None, "0"]
-                                            else "<b><u>Да.</u></b>"}"""
+                                            else "<b><u>Да.</u></b>"}
+                                            
+<i>Обновлено:</i>  <code>{datetime.datetime.now().strftime('%H:%M:%S')}</code>"""
     return message

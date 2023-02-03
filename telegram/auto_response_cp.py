@@ -12,6 +12,7 @@ from telegram import telegram_tools as tg_tools, keyboards
 
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
+import datetime
 import logging
 
 
@@ -76,6 +77,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
 
         keyboard = types.InlineKeyboardMarkup()\
             .add(Button("✏️ Редактировать команду", callback_data=f"edit_command:{command_number}:{offset}"))
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
+                    f"$YELLOW[{raw_command}]$RESET в конфиг авто-ответчика.")
         bot.send_message(m.chat.id, f"✅ Добавлена новая секция "
                                     f"<code>[{tg_tools.format_text(raw_command)}]</code> в конфиг авто-ответчика.",
                          parse_mode="HTML", reply_markup=keyboard)
@@ -110,7 +113,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
 <b><i>Отправлять уведомления в Telegram:</i></b> <b><u>{telegram_notification_text}</u></b>
 
 <b><i>Текст уведомления:</i></b> <code>{tg_tools.format_text(notification_text)}</code>
-"""
+
+<i>Обновлено:</i>  <code>{datetime.datetime.now().strftime('%H:%M:%S')}</code>"""
         bot.edit_message_text(message, c.message.chat.id, c.message.id, reply_markup=keyboard, parse_mode="HTML")
         bot.answer_callback_query(c.id)
 
@@ -144,8 +148,11 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
             cardinal.AR_CFG.set(cmd, "response", response_text)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
 
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст ответа "
+                    f"команды $YELLOW[{command}]$RESET на $YELLOW\"{response_text}\"$RESET.")
         bot.send_message(m.chat.id, f"✅ Ответ команды / сета команд <code>[{tg_tools.format_text(command)}]</code> "
-                                    f"изменен на <code>{tg_tools.format_text(response_text)}</code>",
+                                    f"изменен на <code>{tg_tools.format_text(response_text)}</code>"
+                                    "\n\n<b><u>ОБНОВИТЕ СООБЩЕНИЕ С НАСТРОЙКАМИ КОМАНДЫ!</u></b>",
                          parse_mode="HTML")
 
     def act_edit_command_notification(c: types.CallbackQuery):
@@ -178,8 +185,11 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
             cardinal.AR_CFG.set(cmd, "response", notification_text)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
 
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст "
+                    f"уведомления команды $YELLOW[{command}]$RESET на $YELLOW\"{notification_text}\"$RESET.")
         bot.send_message(m.chat.id, f"✅ Текст уведомления команды <code>[{tg_tools.format_text(command)}]</code> "
-                                    f"изменен на <code>{tg_tools.format_text(notification_text)}</code>",
+                                    f"изменен на <code>{tg_tools.format_text(notification_text)}</code>"
+                                    "\n\n<b><u>ОБНОВИТЕ СООБЩЕНИЕ С НАСТРОЙКАМИ КОМАНДЫ!</u></b>",
                          parse_mode="HTML")
 
     def switch_notification(c: types.CallbackQuery):
@@ -204,6 +214,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         for cmd in commands:
             cardinal.AR_CFG.set(cmd, "telegramNotification", value)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
+        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET изменил параметр "
+                    f"$CYANtelegramNotification$RESET команды $YELLOW[{command}]$RESET на $YELLOW{value}$RESET.")
         open_edit_command_cp(c)
 
     def del_command(c: types.CallbackQuery):
@@ -224,6 +236,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         for cmd in commands:
             cardinal.AR_CFG.remove_section(cmd)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
+        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET удалил команду "
+                    f"$YELLOW[{command}]$RESET.")
         bot.edit_message_text(f"Выберите интересующую вас команду.", c.message.chat.id, c.message.id,
                               reply_markup=keyboards.commands_list(cardinal, offset))
         bot.answer_callback_query(c.id)

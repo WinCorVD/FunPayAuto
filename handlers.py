@@ -3,11 +3,12 @@
 """
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from FunPayAPI.types import NewMessageEvent, NewOrderEvent, RaiseResponse, Message, Order
+from FunPayAPI.types import NewMessageEvent, NewOrderEvent, OrdersListChangedEvent, RaiseResponse, Message, Order
 import FunPayAPI.users
 
 from Utils import cardinal_tools
@@ -135,6 +136,8 @@ def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageE
     """
     Отправляет уведомление о новом сообщении в телеграм.
     """
+    if not event.message.unread:
+        return
     if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockNewMessageNotification"]):
         return
     if cardinal.telegram is None or not int(cardinal.MAIN_CFG["Telegram"]["newMessageNotification"]):
@@ -185,23 +188,17 @@ def test_auto_delivery_handler(cardinal: Cardinal, event: NewMessageEvent) -> No
         return
     split = event.message.text.split(" ")
     if len(split) < 2:
-        logger.warning("Не обнаружен секретный код.")
+        logger.warning("Одноразовый ключ авто-выдачи не обнаружен.")
         return
 
     key = event.message.text.split(" ")[1].strip()
-    if not key.isnumeric() or int(key) != cardinal.secret_key:
-        logger.warning("Неверный секретный код.")
+    if key not in cardinal.delivery_tests:
+        logger.warning("Невалидный одноразовый ключ.")
         return
 
-    cardinal.update_secret_key()
-    logger.warning("Секретный код обновлен.")
-
-    split = event.message.text.split(" ", 2)
-    if len(split) < 3 or not split[2].strip():
-        logger.warning("Название лота не обнаружено.")
-        return
-
-    lot_name = split[2].strip()
+    lot_name = cardinal.delivery_tests[key]
+    del cardinal.delivery_tests[key]
+    logger.info(f"Одноразовый ключ $YELLOW{key}$RESET удален.")
 
     fake_order = Order(ORDER_HTML_TEMPLATE.replace("$username", event.message.chat_with).replace("$lot_name", lot_name),
                        "#DELIVERY_TEST", lot_name, 999999.0, event.message.chat_with, 000000,
@@ -225,7 +222,114 @@ def send_categories_raised_notification_handler(cardinal: Cardinal, game_id: int
                  f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.", ), daemon=True).start()
 
 
+# Изменен список ордеров (REGISTER_TO_ORDERS_LIST_CHANGED)
+def get_lot_config_by_name(cardinal: Cardinal, name: str) -> configparser.SectionProxy | None:
+    """
+    Ищет секцию лота в конфиге авто-выдачи.
+    :param cardinal: экземпляр кардинала.
+    :param name: название лота.
+    :return: секцию конфига или None.
+    """
+    for i in cardinal.AD_CFG.sections():
+        if i in name:
+            return cardinal.AD_CFG[i]
+    return None
+
+
+def check_lot_products_count(config_obj: configparser.SectionProxy) -> int:
+    file_name = config_obj.get("productsFileName")
+    if file_name is None:
+        return 1
+
+    return cardinal_tools.get_products_count(f"storage/products/{file_name}")
+
+
+def update_lots_state(cardinal: Cardinal, event: OrdersListChangedEvent):
+    if not any([cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"),
+                cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable")]):
+        return
+
+    logger.info("Получаю информацию о лотах...")
+    attempts = 3
+    lots_info = []
+    while attempts:
+        try:
+            lots_info = FunPayAPI.users.get_user(cardinal.account.id).lots
+            break
+        except:
+            logger.error("Произошла ошибка при получении информации о лотах.")
+            logger.debug(traceback.format_exc())
+            attempts -= 1
+    if not attempts:
+        logger.error("Не удалось получить информацию о лотах: превышено кол-во попыток.")
+        return
+
+    lots_ids = [i.id for i in lots_info]
+
+    # -1 - деактивировать
+    # 0 - ничего не делать
+    # 1 - восстановить
+    current_task = 0
+
+    for lot in cardinal.lots:
+        config_obj = get_lot_config_by_name(cardinal, lot.title)
+
+        # ЕСЛИ ЛОТ УЖЕ ДЕАКТИВИРОВАН
+        if lot.id not in lots_ids:
+            # ЕСЛИ ЛОТ !НЕ! НАЙДЕН В КОНФИГЕ АВТО-ВЫДАЧИ И ВКЛЮЧЕНО АВТО-ВОССТАНОВЛЕНИЕ
+            if config_obj is None and cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"):
+                current_task = 1
+
+            # ЕСЛИ ЛОТ НАЙДЕН В КОНФИГЕ АВТО-ВЫДАЧИ
+            else:
+                products_count = check_lot_products_count(config_obj)
+                # ЕСЛИ ТОВАРЫ ЕЩЕ ЕСТЬ И ВКЛЮЧЕНО АВТО-ВОССТАНОВЕЛИЕ, А В ЛОТЕ ОНО НЕ ВЫКЛЮЧЕНО
+                if products_count and cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore") \
+                        and config_obj.get("disableAutoRestore") in ["0", None]:
+                    current_task = 1
+
+        # ЕСЛИ ЛОТ АКТИВЕН
+        else:
+            if config_obj:
+                products_count = check_lot_products_count(config_obj)
+                if all((not products_count, cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"),
+                        config_obj.get("disableAutoDisable") in ["0", None])):
+                    current_task = -1
+
+        if current_task:
+            attempts = 3
+            while attempts:
+                try:
+                    lot_info = cardinal.account.get_lot_info(lot.id, lot.game_id)
+                    if current_task == 1:
+                        cardinal.account.save_lot(lot_info, active=True)
+                        logger.info(f"Восстановил лот $YELLOW{lot.title}$RESET.")
+                    elif current_task == -1:
+                        cardinal.account.save_lot(lot_info, active=False)
+                        logger.info(f"Деактивировал лот $YELLOW{lot.title}$RESET.")
+                        pass
+                    break
+                except:
+                    logger.error(f"Произошла ошибка при изменении состояния лота $YELLOW{lot.title}$RESET.")
+                    logger.debug(traceback.format_exc())
+                    attempts -= 1
+            if not attempts:
+                logger.error(f"Не удалось изменить состояние лота $YELLOW{lot.title}$RESET: превышено кол-во попыток.")
+                continue
+
+
+def update_lots_state_handler(cardinal: Cardinal, event: OrdersListChangedEvent):
+    Thread(target=update_lots_state, args=(cardinal, event)).start()
+
+
 # Новый ордер (REGISTER_TO_NEW_ORDER)
+def log_new_order_handler(cardinal: Cardinal, event: NewOrderEvent, *args):
+    """
+    Логирует новый заказ.
+    """
+    logger.info(f"Новый заказ! ID: $YELLOW{event.order.id}$RESET")
+
+
 def send_new_order_notification_handler(cardinal: Cardinal, event: NewOrderEvent, *args):
     """
     Отправляет уведомления о новом заказе в телеграм.
@@ -252,6 +356,7 @@ def send_new_order_notification_handler(cardinal: Cardinal, event: NewOrderEvent
 def send_product_text(node_id: int, text: str, order_id: str, cardinal: Cardinal, *args) -> bool:
     """
     Отправляет сообщение с товаром в чат node_id.
+    !НЕ РАЙЗИТ ОШИБКИ!
 
     :param node_id: ID чата.
     :param text: текст сообщения.
@@ -315,6 +420,14 @@ def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> 
     """
     Обертка для deliver_product(), обрабатывающая ошибки.
     """
+    if event.order.buyer_username in cardinal.block_list and cardinal.MAIN_CFG["BlockList"].getboolean("blockDelivery"):
+        logger.info(f"Пользователь {event.order.buyer_username} находится в ЧС и включена блокировка авто-выдачи. "
+                    f"$YELLOW(ID: {event.order.id})$RESET")
+        if cardinal.telegram and cardinal.MAIN_CFG["Telegram"].getboolean("productsDeliveryNotification"):
+            cardinal.telegram.send_notification(f"Пользователь {event.order.buyer_username} находится в ЧС и включена "
+                                                f"блокировка авто-выдачи.")
+        return
+
     # Ищем название лота в конфиге.
     delivery_obj = None
     config_lot_name = ""
@@ -323,18 +436,19 @@ def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> 
             delivery_obj = cardinal.AD_CFG[lot_name]
             config_lot_name = lot_name
             break
+
     if delivery_obj is None:
-        return None
+        logger.info(f"Лот \"{event.order.title}\" не обнаружен в конфиге авто-выдачи.")
+        return
 
     if delivery_obj.get("disable") is not None and delivery_obj.getboolean("disable"):
+        logger.info(f"Для данного лота отключена авто-выдача. $YELLOW(ID: {event.order.id})$RESET")
         return
 
     cardinal.run_handlers(cardinal.pre_delivery_handlers, (cardinal, event, config_lot_name))
     try:
         result = deliver_product(cardinal, event, delivery_obj, *args)
-        if result is None:
-            logger.info(f"Лот \"{event.order.title}\" не обнаружен в конфиге авто-выдачи.")
-        elif not result[0]:
+        if not result[0]:
             logger.error(f"Ошибка при выдаче товара для ордера {event.order.id}: превышено кол-во попыток.")
             cardinal.run_handlers(cardinal.post_delivery_handlers,
                                   (cardinal, event, config_lot_name, "Превышено кол-во попыток.", True))
@@ -372,64 +486,6 @@ def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent,
     Thread(target=cardinal.telegram.send_notification, args=(text, ), daemon=True).start()
 
 
-def change_lot_state_handler(cardinal: Cardinal, event: NewOrderEvent, config_lot_name: str,
-                             delivery_text: str, errored: bool = False, *args):
-    delivery_obj = cardinal.AD_CFG[config_lot_name]
-    if delivery_obj.get("productsFileName"):
-        # получить кол-во товара
-        file_name = delivery_obj.get("productsFileName")
-        products_count = cardinal_tools.get_products_count(f"storage/products/{file_name}")
-        if products_count:
-            if int(cardinal.MAIN_CFG["FunPay"]["autoRestore"]):
-                # restore
-                pass
-                return
-            return
-        else:
-            if int(cardinal.MAIN_CFG["FunPay"]["autoDisable"]):
-                # disable
-                pass
-                return
-            return
-    else:
-        if int(cardinal.MAIN_CFG["FunPay"]["autoRestore"]):
-            if cardinal.AD_CFG[config_lot_name].get("disableAutoRestore") is not None and int(cardinal.AD_CFG[config_lot_name].get("disableAutoRestore")):
-                return
-            else:
-                # todo
-                return
-
-
-'''def activate_lots_handler(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: configparser.SectionProxy):
-    """
-    Активирует деактивированные лоты.
-    """
-    logger.info("Обновляю информацию о лотах...")
-    attempts = 3
-    lots_info = []
-    while attempts:
-        try:
-            lots_info = FunPayAPI.users.get_user_lots_info(cardinal.account.id)["lots"]
-            break
-        except:
-            logger.error("Произошла пошибка при получении информации о лотах.")
-            logger.debug(traceback.format_exc())
-            attempts -= 1
-    if not attempts:
-        logger.error("Не удалось получить информацию о лотах: превышено кол-во попыток.")
-        return
-
-    lots_ids = [i.id for i in lots_info]
-    for lot in cardinal.lots:
-        if lot.id not in lots_ids:
-            try:
-                cardinal.account.change_lot_state(lot.id, lot.game_id)
-                logger.info(f"Активировал лот {lot.id}.")
-            except:
-                logger.error(f"Не удалось активировать лот {lot.id}.")
-                logger.debug(traceback.format_exc())'''
-
-
 # REGISTER_TO_POST_START
 def send_bot_started_notification_handler(cardinal: Cardinal, *args) -> None:
     """
@@ -458,9 +514,10 @@ REGISTER_TO_NEW_MESSAGE = [log_msg_handler,
 
 REGISTER_TO_POST_LOTS_RAISE = [send_categories_raised_notification_handler]
 
-REGISTER_TO_NEW_ORDER = [send_new_order_notification_handler, deliver_product_handler]
+REGISTER_TO_ORDERS_LIST_CHANGED = [update_lots_state_handler]
+
+REGISTER_TO_NEW_ORDER = [log_new_order_handler, send_new_order_notification_handler, deliver_product_handler]
 
 REGISTER_TO_POST_DELIVERY = [send_delivery_notification_handler]
 
 REGISTER_TO_POST_START = [send_bot_started_notification_handler]
-

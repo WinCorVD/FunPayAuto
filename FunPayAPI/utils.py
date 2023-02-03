@@ -1,3 +1,7 @@
+"""
+В данном модуле написаны вспомогательные функции.
+"""
+
 import string
 import random
 
@@ -18,14 +22,15 @@ def get_wait_time_from_raise_response(response: str) -> int:
     Парсит ответ FunPay на запрос о поднятии лотов.
 
     :param response: текст ответа.
+
     :return: Примерное время ожидание до следующего поднятия лотов (в секундах).
     """
-    if "секунду." in response:
+    if response == "Подождите секунду.":
         return 1
     elif "сек" in response:
         response = response.split()
         return int(response[1])
-    elif "минуту." in response:
+    elif response == "Подождите минуту.":
         return 60
     elif "мин" in response:
         response = response.split()

@@ -1,5 +1,4 @@
 from pip._internal.cli.main import main
-from sys import platform
 
 
 common_packages = [
@@ -13,12 +12,6 @@ common_packages = [
     "aiohttp>=3.8.3"
 ]
 
-linux = [
-]
-
-windows = [
-]
-
 
 def install_packages(packages_list: list[str]):
     for pkg in packages_list:
@@ -27,7 +20,3 @@ def install_packages(packages_list: list[str]):
 
 if __name__ == '__main__':
     install_packages(common_packages)
-    if "win" in platform:
-        install_packages(windows)
-    elif "linux" in platform:
-        install_packages(linux)

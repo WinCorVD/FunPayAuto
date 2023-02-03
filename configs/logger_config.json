@@ -1,0 +1,53 @@
+{
+    "version": 1,
+    "handlers": {
+        "file_handler": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "level": "DEBUG",
+            "formatter": "file_formatter",
+            "filename": "logs/log.log",
+            "when": "midnight",
+            "encoding": "utf-8"
+        },
+
+        "cli_handler": {
+            "class": "logging.StreamHandler",
+            "level": "INFO",
+            "formatter": "cli_formatter"
+        }
+    },
+
+    "formatters": {
+        "file_formatter": {
+            "()": "Utils.logger.FileLoggerFormatter"
+        },
+
+        "cli_formatter": {
+            "()": "Utils.logger.CLILoggerFormatter"
+        }
+    },
+
+    "loggers": {
+        "main": {
+            "handlers": ["cli_handler", "file_handler"],
+            "level": "DEBUG"
+        },
+        "FunPayAPI": {
+            "handlers": ["cli_handler", "file_handler"],
+            "level": "DEBUG"
+        },
+        "FPC": {
+            "handlers": ["cli_handler", "file_handler"],
+            "level": "DEBUG"
+        },
+        "TGBot": {
+            "handlers": ["cli_handler", "file_handler"],
+            "level": "DEBUG"
+        },
+        "TeleBot": {
+            "handlers": ["file_handler"],
+            "level": "ERROR",
+            "propagate": "False"
+        }
+    }
+}

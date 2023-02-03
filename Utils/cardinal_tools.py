@@ -5,9 +5,9 @@ if TYPE_CHECKING:
     import FunPayAPI.types
 
 from datetime import datetime
-import psutil
 import Utils.exceptions
 import itertools
+import psutil
 import json
 import sys
 import os
@@ -28,12 +28,14 @@ def get_products_count(products_file_path: str) -> int:
     return len(products)
 
 
-def cache_categories(category_list: list[FunPayAPI.types.Category]) -> None:
+def cache_categories(category_list: list[FunPayAPI.types.Category], cached_categories: dict | None = None) -> None:
     """
     Кэширует данные о категориях аккаунта в файл storage/cache/categories.json. Необходимо для того, чтобы каждый раз
     при запуске бота не отправлять запросы на получение game_id каждой категории.
 
     :param category_list: список категорий, которые необходимо кэшировать.
+    :param cached_categories: список уже кэшированных категорий. Нужен, чтобы не перезаписывать старые, а добавлять к
+    ним новые категории.
     :return: None
     """
     result = {}
@@ -48,6 +50,9 @@ def cache_categories(category_list: list[FunPayAPI.types.Category]) -> None:
         # 146_1 = https://funpay.com/chips/146/
         category_cached_name = f"{cat.id}_{cat.type.value}"
         result[category_cached_name] = cat.game_id
+
+    if cached_categories:
+        result.update(cached_categories)
 
     # Создаем папку для хранения кэшированных данных.
     if not os.path.exists("storage/cache"):
@@ -302,6 +307,9 @@ def format_order_text(text: str, order: FunPayAPI.types.Order) -> str:
 
 
 def restart_program():
+    """
+    Полный перезапуск FPC.
+    """
     python = sys.executable
     os.execl(python, python, *sys.argv)
     try:
@@ -315,6 +323,9 @@ def restart_program():
 
 
 def shut_down():
+    """
+    Полное отключение FPC.
+    """
     try:
         process = psutil.Process()
         process.terminate()

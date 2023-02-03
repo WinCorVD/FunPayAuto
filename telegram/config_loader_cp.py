@@ -9,11 +9,13 @@ if TYPE_CHECKING:
     from cardinal import Cardinal
 
 from telebot import types
-
-from Utils import config_loader as cfg_loader
 from telegram import keyboards
+import logging
 
 import os
+
+
+logger = logging.getLogger("TGBot")
 
 
 def init_config_loader_cp(cardinal: Cardinal, *args):
@@ -43,6 +45,8 @@ def init_config_loader_cp(cardinal: Cardinal, *args):
         else:
             with open(path, "r", encoding="utf-8") as f:
                 bot.send_document(c.message.chat.id, f)
+            logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
+                        f"конфиг $YELLOW{path}$RESET.")
             bot.answer_callback_query(c.id)
 
     tg.cbq_handler(open_config_loader, func=lambda c: c.data == "config_loader")
