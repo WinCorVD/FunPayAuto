@@ -629,7 +629,7 @@ class TGBot:
 
             text += f"\n{module}\n"
             for command in self.commands[module]:
-                text += f"    /er{command} - {self.commands[module][command]}\n"
+                text += f"    /{command} - {self.commands[module][command]}\n"
 
         return text.strip()
 

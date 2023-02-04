@@ -417,7 +417,7 @@ $product""")
             .add(Button("✏️ Редактировать лот", callback_data=f"edit_lot:{lot_number}:0"))
 
         logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET добавил секцию "
-                    f"$YELLOW[{lot}]$RESET в конфиг авто-выдачи.")
+                    f"$YELLOW[{lot.title}]$RESET в конфиг авто-выдачи.")
         bot.send_message(c.message.chat.id,
                          f"✅ Добавлена новая секция <code>{tg_tools.format_text(lot.title)}</code> в конфиг "
                          f"авто-выдачи.", parse_mode="HTML", reply_markup=keyboard)
