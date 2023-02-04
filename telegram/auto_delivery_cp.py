@@ -504,13 +504,14 @@ $product""")
         """
         Отправляет файл с товарами.
         """
-        file_name = c.data.split(":")[1]
-        if not os.path.exists(f"storage/products/{file_name}"):
-            bot.edit_message_text(f"❌ Файл <code>storage/products/{file_name}</code> не обнаружен. "
-                                  f"Обновите меню авто-выдачи.",
-                                  c.message.chat.id, c.message.id, parse_mode="HTML")
-            bot.answer_callback_query(c.id)
+        file_number = int(c.data.split(":")[1])
+        files = os.listdir("storage/products")
+        files = [i for i in files if i.endswith(".txt")]
+        if file_number > len(files) - 1:
+            bot.send_message(c.message.chat.id, f"❌ Искомый файл не обнаружен. Обновите меню авто-выдачи.")
             return
+        file_name = files[file_number]
+
         with open(f"storage/products/{file_name}", "r", encoding="utf-8") as f:
             logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
                         f"файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
