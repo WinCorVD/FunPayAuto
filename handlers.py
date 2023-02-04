@@ -58,7 +58,9 @@ ORDER_HTML_TEMPLATE = """<a href="https://funpay.com/orders/DELIVERY_TEST/" clas
 def create_reply_button(node_id: int) -> telebot.types.InlineKeyboardMarkup:
     """
     Генерирует кнопку для отправки сообщения из Telegram в ЛС пользователю FunPay.
+
     :param node_id: ID переписки, в которую нужно отправить сообщение.
+
     :return: экземпляр кнопки (клавиатуры).
     """
     keyboard = telebot.types.InlineKeyboardMarkup()
@@ -136,25 +138,24 @@ def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageE
     """
     Отправляет уведомление о новом сообщении в телеграм.
     """
+    if cardinal.telegram is None or not cardinal.MAIN_CFG["Telegram"].getboolean("newMessageNotification"):
+        return
     if not event.message.unread:
         return
     if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockNewMessageNotification"]):
         return
-    if cardinal.telegram is None or not int(cardinal.MAIN_CFG["Telegram"]["newMessageNotification"]):
-        return
     if event.message.text.strip().lower() in cardinal.AR_CFG.sections():
         return
-
     if event.message.text.startswith("!автовыдача"):
         return
-
     if any(i in event.message.text for i in ["Покупатель", "Продавец"]):
         if any(i in event.message.text for i in ["вернул деньги", "оплатил заказ", "написал отзыв",
                                                  "подтвердил успешное выполнение заказа"]):
             return
-    text = f"""Новое сообщение в переписке с пользователем <a href="https://funpay.com/chat/?node={event.message.node_id}">{event.message.chat_with}</a>.
 
-{tg_tools.format_text(event.message.text)}"""
+    text = f"""Сообщение в переписке <a href="https://funpay.com/chat/?node={event.message.node_id}">{event.message.chat_with}</a>.
+
+<b><i>{event.message.chat_with}:</i></b> {tg_tools.format_text(event.message.text)}"""
 
     button = create_reply_button(event.message.node_id)
     Thread(target=cardinal.telegram.send_notification, args=(text, button), daemon=True).start()

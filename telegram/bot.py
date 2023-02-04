@@ -51,13 +51,13 @@ class TGBot:
         self.commands = {
             "FunPayCardinal": {
                 "menu": "открыть панель настроек",
-                "commands": "отправляет справку по командам",
+                "commands": "получить справку по командам",
                 "test_lot": "создать ключ для теста авто-выдачи",
                 "add_chat": "вкл. уведомления в этом чате",
                 "remove_chat": "выкл. уведомления в этот чат",
                 "ban": "добавить пользователя в ЧС",
                 "unban": "удалить пользователя из ЧС",
-                "block_list": "получить черный список",
+                "block_list": "получить ЧС",
                 "logs": "получить лог-файл",
                 "about": "информация о боте",
                 "sys": "информация о нагрузке на систему",
@@ -214,22 +214,22 @@ class TGBot:
             cardinal_tools.shut_down()
             self.bot.answer_callback_query(call.id)
 
-        textes = ["""На всякий случай спрошу еще раз.
+        texts = ["""На всякий случай спрошу еще раз.
         
 <b><u>Вы точно уверены?</u></b>""",
-                  """Просто для протокола.
+                 """Просто для протокола.
                   
 Вам придется логиниться на ваш дедик или подходить к компьютеру (или где еще я там у вас) и запускать меня вручную!""",
 
-                  """Не то что бы я навязываюсь, но если вы хотите применить изменения в конфигах, вы можете 
+                 """Не то что бы я навязываюсь, но если вы хотите применить изменения в конфигах, вы можете 
 просто перезапустить меня (кнопка так же есть в ПУ)...""",
 
-                  """Вы вообще читаете мои сообщения? Проверим ка вас на внимательность. Да = Нет, а Нет = да. 
+                 """Вы вообще читаете мои сообщения? Проверим ка вас на внимательность. Да = Нет, а Нет = да. 
 Уверен, вы даже не читаете мои сообщения, а ведь я дело говорю :(""",
 
-                  "Ну то есть твердо и четко, дэ?"]
+                 "Ну то есть твердо и четко, дэ?"]
 
-        self.bot.edit_message_text(textes[state-1], call.message.chat.id, call.message.id,
+        self.bot.edit_message_text(texts[state - 1], call.message.chat.id, call.message.id,
                                    reply_markup=keyboards.power_off(instance_id, state), parse_mode="HTML")
         self.bot.answer_callback_query(call.id)
 
@@ -253,7 +253,8 @@ class TGBot:
         """
         Активирует режим ввода никнейма пользователя, которого нужно добавить в ЧС.
         """
-        result = self.bot.send_message(message.chat.id, "Введите имя пользователя, которого хотите внести в ЧС.")
+        result = self.bot.send_message(message.chat.id, "Введите имя пользователя, которого хотите внести в ЧС.",
+                                       reply_markup=keyboards.CLEAR_STATE_BTN)
         self.set_user_state(message.chat.id, result.id, message.from_user.id, "ban")
 
     def add_to_block_list(self, message: types.Message):
@@ -278,7 +279,8 @@ class TGBot:
         """
         Активирует режим ввода никнейма пользователя, которого нужно удалить из ЧС.
         """
-        result = self.bot.send_message(message.chat.id, "Введите имя пользователя, которого хотите удалить в ЧС.")
+        result = self.bot.send_message(message.chat.id, "Введите имя пользователя, которого хотите удалить в ЧС.",
+                                       reply_markup=keyboards.CLEAR_STATE_BTN)
         self.set_user_state(message.chat.id, result.id, message.from_user.id, "unban")
 
     def remove_from_block_list(self, message: types.Message):
@@ -296,7 +298,7 @@ class TGBot:
         self.cardinal.block_list.remove(nickname)
         cardinal_tools.cache_block_list(self.cardinal.block_list)
         logger.info(f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET "
-                    f"удалил пользователя $YELLOW{nickname}$RESET в ЧС.")
+                    f"удалил пользователя $YELLOW{nickname}$RESET из ЧС.")
         self.bot.send_message(message.chat.id, f"✅ Пользователь <code>{nickname}</code> удален из ЧС.",
                               parse_mode="HTML")
 
@@ -314,8 +316,9 @@ class TGBot:
         """
         Активирует режим ввода названия лота для ручной генерации ключа теста авто-выдачи.
         """
-        result = self.bot.send_message(message.chat.id, "Введите название лота, тест авто-выдачи которого вы хотите"
-                                                        "провести.")
+        result = self.bot.send_message(message.chat.id, "Введите название лота, тест авто-выдачи которого вы хотите "
+                                                        "провести.",
+                                       reply_markup=keyboards.CLEAR_STATE_BTN)
         self.set_user_state(message.chat.id, result.id, message.from_user.id, "test_auto_delivery_manual")
 
     def create_lot_delivery_test_manual(self, message: types.Message):
