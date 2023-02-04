@@ -26,7 +26,7 @@ logger.debug("-------------------Новый запуск.-------------------")
 
 print(f"""{Fore.MAGENTA}{Style.BRIGHT}█▀▀ █░█ █▄░█ █▀█ ▄▀█ █▄█  {Fore.CYAN} █▀▀ ▄▀█ █▀█ █▀▄ █ █▄░█ ▄▀█ █░░{Style.RESET_ALL}
 {Fore.MAGENTA}{Style.BRIGHT}█▀░ █▄█ █░▀█ █▀▀ █▀█ ░█░  {Fore.CYAN} █▄▄ █▀█ █▀▄ █▄▀ █ █░▀█ █▀█ █▄▄{Style.RESET_ALL}""")
-print(f"{Fore.RED}{Style.BRIGHT}v0.0.5.2{Style.RESET_ALL}")
+print(f"{Fore.RED}{Style.BRIGHT}v0.0.5.3{Style.RESET_ALL}")
 print("\n")
 print(f"{Fore.MAGENTA}{Style.BRIGHT}By {Fore.BLUE}{Style.BRIGHT}Woopertail{Style.RESET_ALL}\n")
 print(f"{Fore.MAGENTA}{Style.BRIGHT} * GitHub: {Fore.BLUE}{Style.BRIGHT}github.com/woopertail/FunPayCardinal{Style.RESET_ALL}")

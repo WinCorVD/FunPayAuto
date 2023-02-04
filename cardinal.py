@@ -369,11 +369,11 @@ class Cardinal:
             msg.text = f"{self.MAIN_CFG['Other']['watermark']}\n" + msg.text
 
         lines = msg.text.split("\n")
-        lines = [i.strip() for i in lines if i.strip()]
+        lines = [i.strip() for i in lines]
         msg.text = "\n".join(lines)
 
-        while "\n\n\n" in msg.text:
-            msg.text = msg.text.replace("\n\n\n", "\n\n")
+        while "\n\n" in msg.text:
+            msg.text = msg.text.replace("\n\n", "\n[a][/a]\n")
 
         lines = msg.text.split("\n")
 
@@ -387,7 +387,7 @@ class Cardinal:
         for i in split_messages:
             response = self.account.send_message(i)
             if response.get("response") and response.get("response").get("error") is None:
-                self.runner.update_saved_message(msg)
+                self.runner.update_saved_message(i)
                 logger.info(f"Отправил сообщение в чат $YELLOW{msg.node_id}.")
             else:
                 logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET Подробнее "

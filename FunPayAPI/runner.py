@@ -166,6 +166,7 @@ class Runner:
         :param message_obj: экземпляр класса, описывающего сообщение.
         """
         message_copy = deepcopy(message_obj)
+        message_copy.text = message_copy.text.replace("[a][/a]", "")
         message_copy.text = message_copy.text[:250]
         self.saved_messages[message_copy.node_id] = message_copy
 
