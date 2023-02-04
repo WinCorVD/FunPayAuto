@@ -226,8 +226,11 @@ def send_categories_raised_notification_handler(cardinal: Cardinal, game_id: int
 def get_lot_config_by_name(cardinal: Cardinal, name: str) -> configparser.SectionProxy | None:
     """
     Ищет секцию лота в конфиге авто-выдачи.
+
     :param cardinal: экземпляр кардинала.
+
     :param name: название лота.
+
     :return: секцию конфига или None.
     """
     for i in cardinal.AD_CFG.sections():
@@ -260,6 +263,7 @@ def update_lots_state(cardinal: Cardinal, event: OrdersListChangedEvent):
             logger.error("Произошла ошибка при получении информации о лотах.")
             logger.debug(traceback.format_exc())
             attempts -= 1
+            time.sleep(2)
     if not attempts:
         logger.error("Не удалось получить информацию о лотах: превышено кол-во попыток.")
         return
@@ -277,16 +281,22 @@ def update_lots_state(cardinal: Cardinal, event: OrdersListChangedEvent):
         # ЕСЛИ ЛОТ УЖЕ ДЕАКТИВИРОВАН
         if lot.id not in lots_ids:
             # ЕСЛИ ЛОТ !НЕ! НАЙДЕН В КОНФИГЕ АВТО-ВЫДАЧИ И ВКЛЮЧЕНО АВТО-ВОССТАНОВЛЕНИЕ
-            if config_obj is None and cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"):
-                current_task = 1
+            if config_obj is None:
+                if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"):
+                    current_task = 1
 
             # ЕСЛИ ЛОТ НАЙДЕН В КОНФИГЕ АВТО-ВЫДАЧИ
             else:
-                products_count = check_lot_products_count(config_obj)
-                # ЕСЛИ ТОВАРЫ ЕЩЕ ЕСТЬ И ВКЛЮЧЕНО АВТО-ВОССТАНОВЕЛИЕ, А В ЛОТЕ ОНО НЕ ВЫКЛЮЧЕНО
-                if products_count and cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore") \
-                        and config_obj.get("disableAutoRestore") in ["0", None]:
-                    current_task = 1
+                # Если авто-восстановление вкл. и не выкл. в лоте
+                if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore") and \
+                        config_obj.get("disableAutoRestore") in ["0", None]:
+                    # Если авто-деактивация выключена - восстанавливаем в любом случае
+                    if not cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"):
+                        current_task = 1
+                    # Если авто-деактивация включена - восстанавливаем только если есть товары
+                    else:
+                        if check_lot_products_count(config_obj):
+                            current_task = 1
 
         # ЕСЛИ ЛОТ АКТИВЕН
         else:
@@ -297,6 +307,7 @@ def update_lots_state(cardinal: Cardinal, event: OrdersListChangedEvent):
                     current_task = -1
 
         if current_task:
+            time.sleep(0.2)
             attempts = 3
             while attempts:
                 try:
@@ -307,19 +318,20 @@ def update_lots_state(cardinal: Cardinal, event: OrdersListChangedEvent):
                     elif current_task == -1:
                         cardinal.account.save_lot(lot_info, active=False)
                         logger.info(f"Деактивировал лот $YELLOW{lot.title}$RESET.")
-                        pass
                     break
                 except:
                     logger.error(f"Произошла ошибка при изменении состояния лота $YELLOW{lot.title}$RESET.")
                     logger.debug(traceback.format_exc())
                     attempts -= 1
+                    time.sleep(2)
             if not attempts:
                 logger.error(f"Не удалось изменить состояние лота $YELLOW{lot.title}$RESET: превышено кол-во попыток.")
                 continue
+        time.sleep(0.5)
 
 
 def update_lots_state_handler(cardinal: Cardinal, event: OrdersListChangedEvent):
-    Thread(target=update_lots_state, args=(cardinal, event)).start()
+    Thread(target=update_lots_state, args=(cardinal, event), daemon=True).start()
 
 
 # Новый ордер (REGISTER_TO_NEW_ORDER)

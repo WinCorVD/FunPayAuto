@@ -40,7 +40,7 @@ def check_param(param_name: str, section: SectionProxy, valid_values: list[str |
             return value
         raise EmptyValueError(param_name)
 
-    if valid_values and value not in valid_values:
+    if valid_values and valid_values != [None] and value not in valid_values:
         raise ValueNotValidError(param_name, value, valid_values)
     return value
 
@@ -71,7 +71,7 @@ def load_main_config(config_path: str):
     values = {
         "FunPay": {
             "golden_key": "any",
-            "user_agent": "any",
+            "user_agent": "any+empty",
             "autoRaise": ["0", "1"],
             "autoResponse": ["0", "1"],
             "autoDelivery": ["0", "1"],
@@ -81,7 +81,7 @@ def load_main_config(config_path: str):
 
         "Telegram": {
             "enabled": ["0", "1"],
-            "token": "any",
+            "token": "any+empty",
             "secretKey": "any",
             "lotsRaiseNotification": ["0", "1"],
             "newMessageNotification": ["0", "1"],
@@ -98,7 +98,7 @@ def load_main_config(config_path: str):
         },
 
         "Other": {
-            "watermark": "any",
+            "watermark": "any+empty",
             "requestsDelay": [str(i) for i in range(1, 101)]
         }
     }
@@ -111,6 +111,8 @@ def load_main_config(config_path: str):
             try:
                 if values[section_name][param_name] == "any":
                     check_param(param_name, config[section_name])
+                elif values[section_name][param_name] == "any+empty":
+                    check_param(param_name, config[section_name], valid_values=[None])
                 else:
                     check_param(param_name, config[section_name], valid_values=values[section_name][param_name])
             except (ParamNotFoundError, EmptyValueError, ValueNotValidError) as e:

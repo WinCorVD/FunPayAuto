@@ -219,6 +219,7 @@ class Cardinal:
                     for lot_tuple in category_lots:
                         lots[lot_tuple[0]].game_id = game_id
                     logger.info(f"Доп. данные о категории \"{cat.title}\" получены!")
+                    time.sleep(0.2)
                     break
                 except TimeoutError:
                     logger.error(f"Не удалось получить ID игры, к которой относится категория \"{cat.title}\": "
@@ -459,6 +460,7 @@ class Cardinal:
                 continue
             try:
                 next_time = self.raise_lots()
+                time.sleep(0.3)
             except not KeyboardInterrupt:
                 logger.error("При попытке поднять лоты произошла непредвиденная ошибка. Подробнее в файле logs/log.log.")
                 logger.debug(traceback.format_exc())
