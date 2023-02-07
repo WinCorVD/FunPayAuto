@@ -108,6 +108,17 @@ class SubCommandAlreadyExists(Exception):
         return f"Команда или суб-команда \"{self.command}\" уже существует."
 
 
+class DuplicateSectionErrorWrapper(Exception):
+    """
+    Исключение, которое райзится, если при обработке конфига было словлено configparser.DuplicateSectionError
+    """
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return f"Обнаружен дубликат секции."
+
+
 class ConfigParseError(Exception):
     """
     Исключение, которое райзится, если при обработке конфига произошла одна из ошибок, описанных выше.

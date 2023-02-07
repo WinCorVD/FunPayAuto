@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from cardinal import Cardinal
     from telegram.bot import TGBot
 
-from telegram import telegram_tools as tg_tools, keyboards
+from telegram import telegram_tools as tg_tools, keyboards, CBT
 from telebot.types import InlineKeyboardButton as Button
 from Utils import config_loader as cfg_loader
 from Utils import cardinal_tools
@@ -36,7 +36,7 @@ def check_file(tg: TGBot, msg: types.Message) -> bool:
     if not msg.document:
         tg.bot.send_message(msg.chat.id, "❌ Файл не обнаружен.")
         return False
-    if not msg.document.mime_type == "text/plain":
+    if not any((msg.document.file_name.endswith(".cfg"), msg.document.file_name.endswith(".txt"))):
         tg.bot.send_message(msg.chat.id, "❌ Файл должен быть текстовым.")
         return False
     if msg.document.file_size >= 20971520:
@@ -111,7 +111,7 @@ def upload_products_file(cardinal: Cardinal, msg: types.Message):
         return
     file_number = os.listdir("storage/products").index(file_name)
     keyboard = types.InlineKeyboardMarkup() \
-        .add(Button("✏️ Редактировать файл", callback_data=f"products_file:{file_number}:0"))
+        .add(Button("✏️ Редактировать файл", callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{file_number}:0"))
     logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
                 f"загрузил в бота файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
     bot.send_message(msg.chat.id,
@@ -251,7 +251,7 @@ def init_uploader(cardinal: Cardinal):
     bot = tg.bot
 
     def main(msg: types.Message):
-        if tg.check_state(msg.chat.id, msg.from_user.id, "upload_products_file"):
+        if tg.check_state(msg.chat.id, msg.from_user.id, CBT.UPLOAD_PRODUCTS_FILE):
             upload_products_file(cardinal, msg)
         elif tg.check_state(msg.chat.id, msg.from_user.id, "upload_auto_response_config"):
             upload_auto_response_config(cardinal, msg)
@@ -263,7 +263,7 @@ def init_uploader(cardinal: Cardinal):
     def act_upload_products_file(call: types.CallbackQuery):
         result = bot.send_message(call.message.chat.id, "Отправьте мне файл с товарами.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
-        tg.set_user_state(call.message.chat.id, result.id, call.from_user.id, "upload_products_file")
+        tg.set_user_state(call.message.chat.id, result.id, call.from_user.id, CBT.UPLOAD_PRODUCTS_FILE)
         bot.answer_callback_query(call.id)
 
     def act_upload_main_config(call: types.CallbackQuery):
@@ -285,11 +285,10 @@ def init_uploader(cardinal: Cardinal):
         bot.answer_callback_query(call.id)
 
     tg.msg_handler(main, content_types=["document"])
-    tg.cbq_handler(act_upload_products_file, func=lambda c: c.data == "upload_products_file")
+    tg.cbq_handler(act_upload_products_file, func=lambda c: c.data == CBT.UPLOAD_PRODUCTS_FILE)
     tg.cbq_handler(act_upload_auto_response_config, func=lambda c: c.data == "upload_auto_response_config")
     tg.cbq_handler(act_upload_auto_delivery_config, func=lambda c: c.data == "upload_auto_delivery_config")
     tg.cbq_handler(act_upload_main_config, func=lambda c: c.data == "upload_main_config")
 
 
 REGISTER_TO_POST_INIT = [init_uploader]
-

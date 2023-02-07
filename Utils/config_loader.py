@@ -1,14 +1,14 @@
 """
 В данном модуле написаны функции для валидации конфигов.
 """
-
+import configparser
 from configparser import ConfigParser, SectionProxy
 import codecs
 import os
 
 from Utils.exceptions import (ParamNotFoundError, EmptyValueError, ValueNotValidError, SectionNotFoundError,
                               ConfigParseError, ProductsFileNotFoundError, NoProductVarError,
-                              SubCommandAlreadyExists)
+                              SubCommandAlreadyExists, DuplicateSectionErrorWrapper)
 
 
 def check_param(param_name: str, section: SectionProxy, valid_values: list[str | None] | None = None,
@@ -97,6 +97,15 @@ def load_main_config(config_path: str):
             "blockCommandNotification": ["0", "1"]
         },
 
+        "Proxy": {
+            "enable": ["0", "1"],
+            "ip": "any+empty",
+            "port": "any+empty",
+            "login": "any+empty",
+            "password": "any+empty",
+            "check": ["0", "1"]
+        },
+
         "Other": {
             "watermark": "any+empty",
             "requestsDelay": [str(i) for i in range(1, 101)]
@@ -129,7 +138,11 @@ def load_auto_response_config(config_path: str):
 
     :return: спарсеный конфиг команд.
     """
-    config = create_config_obj(config_path)
+    try:
+        config = create_config_obj(config_path)
+    except configparser.DuplicateSectionError as e:
+        raise ConfigParseError(config_path, e.section, DuplicateSectionErrorWrapper())
+
     command_sets = []
     for command in config.sections():
         try:
@@ -177,7 +190,10 @@ def load_auto_delivery_config(config_path: str):
 
     :return: спарсеный конфиг товаров для авто-выдачи.
     """
-    config = create_config_obj(config_path)
+    try:
+        config = create_config_obj(config_path)
+    except configparser.DuplicateSectionError as e:
+        raise ConfigParseError(config_path, e.section, DuplicateSectionErrorWrapper())
 
     for lot_title in config.sections():
         try:

@@ -40,6 +40,7 @@ class Runner:
         self.saved_orders: dict[str, types.Order] = {}
 
         self.first_request = True
+        self.session = requests.session()
 
     def get_updates(self) -> list[types.NewMessageEvent | types.NewOrderEvent | types.OrderStatusChangedEvent]:
         """
@@ -74,8 +75,8 @@ class Runner:
             "x-requested-with": "XMLHttpRequest",
             "user-agent": self.account.user_agent
         }
-
-        response = requests.post(types.Links.RUNNER, headers=headers, data=payload, timeout=self.timeout)
+        response = self.session.post(types.Links.RUNNER, headers=headers, data=payload, timeout=self.timeout,
+                                     proxies=self.account.proxy)
         logger.debug(f"Статус-код получения данных о событиях: {response.status_code}.")
         if response.status_code != 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)

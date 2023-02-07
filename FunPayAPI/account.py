@@ -16,13 +16,16 @@ class Account:
     """
     Класс для работы с аккаунтом FunPay.
     """
-    def __init__(self, golden_key: str, user_agent: str = "", timeout: float | int = 10.0):
+    def __init__(self, golden_key: str, user_agent: str = "", timeout: float | int = 10.0,
+                 proxy: dict | None = None):
         """
         :param golden_key: токен аккаунта.
 
         :param user_agent: user-agent браузера, с которого был произведен вход в аккаунт.
 
         :param timeout: тайм-аут ожидания ответа на запросы.
+
+        :param proxy: HTTP/S прокси.
         """
         self.golden_key: str = golden_key
         self.user_agent = user_agent
@@ -42,6 +45,7 @@ class Account:
         self.last_update: int | None = None
 
         self.saved_html_chats: str | None = None
+        self.proxy = proxy if proxy is not None else {}
 
     def get(self, update_session_id: bool = False):
         """
@@ -56,7 +60,8 @@ class Account:
         if self.session_id and not update_session_id:
             headers["cookie"] += f"; PHPSESSID={self.session_id}"
 
-        response = requests.get(types.Links.BASE_URL, headers=headers, timeout=self.timeout)
+        response = requests.get(types.Links.BASE_URL, headers=headers, timeout=self.timeout,
+                                proxies=self.proxy)
         logger.debug(f"Статус-код получения данных об аккаунте: {response.status_code}.")
         if response.status_code != 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
@@ -122,7 +127,8 @@ class Account:
         headers = {"cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id};",
                    "user-agent": self.user_agent}
 
-        response = requests.get(types.Links.ORDERS, headers=headers, timeout=self.timeout)
+        response = requests.get(types.Links.ORDERS, headers=headers, timeout=self.timeout,
+                                proxies=self.proxy)
         logger.debug(f"Статус-код получения ордеров: {response.status_code}.")
         if response.status_code != 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
@@ -211,7 +217,8 @@ class Account:
             "request": json.dumps(request),
             "csrf_token": self.csrf_token
         }
-        response = requests.post(types.Links.RUNNER, headers=headers, data=payload, timeout=self.timeout)
+        response = requests.post(types.Links.RUNNER, headers=headers, data=payload, timeout=self.timeout,
+                                 proxies=self.proxy)
         logger.debug(f"Статус-код отправления сообщения: {response.status_code}.")
         if response.status_code != 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
@@ -259,7 +266,8 @@ class Account:
 
         headers = {"cookie": f"golden_key={self.golden_key}",
                    "user-agent": self.user_agent}
-        response = requests.get(link, headers=headers, timeout=self.timeout)
+        response = requests.get(link, headers=headers, timeout=self.timeout,
+                                proxies=self.proxy)
         logger.debug(f"Статус-код получения ордеров: {response.status_code}.")
         if response.status_code == 404:
             raise Exception("Категория не найдена.")  # todo: создать кастомное исключение: категория не найдена.
@@ -305,7 +313,8 @@ class Account:
         }
         query = f"?tag={tag}&offer={lot_id}&node={game_id}"
 
-        response = requests.get(f"{types.Links.BASE_URL}/lots/offerEdit{query}", headers=headers, data=payload)
+        response = requests.get(f"{types.Links.BASE_URL}/lots/offerEdit{query}", headers=headers, data=payload,
+                                proxies=self.proxy)
         logger.debug(f"Статус-код получения данных о лоте: {response.status_code}")
         if not response.status_code == 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
@@ -363,7 +372,8 @@ class Account:
             "cookie": f"golden_key={self.golden_key}; PHPSESSID={self.session_id}",
             "user-agent": self.user_agent
         }
-        response = requests.post(f"{types.Links.BASE_URL}/lots/offerSave", headers=headers, data=lot_info)
+        response = requests.post(f"{types.Links.BASE_URL}/lots/offerSave", headers=headers, data=lot_info,
+                                 proxies=self.proxy)
         logger.debug(f"Статус-код изменения состояния лота: {response.status_code}.")
         if response.status_code != 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
@@ -397,7 +407,8 @@ class Account:
             "node_id": category.id
         }
 
-        response = requests.post(types.Links.RAISE, headers=headers, data=payload, timeout=self.timeout)
+        response = requests.post(types.Links.RAISE, headers=headers, data=payload, timeout=self.timeout,
+                                 proxies=self.proxy)
         logger.debug(f"Статус-код получения данных для поднятия лотов: {response.status_code}.")
         if response.status_code != 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
@@ -452,7 +463,8 @@ class Account:
                 "node_id": category.id,
                 "node_ids[]": category_ids
             }
-            response = requests.post(types.Links.RAISE, headers=headers, data=payload, timeout=self.timeout)
+            response = requests.post(types.Links.RAISE, headers=headers, data=payload, timeout=self.timeout,
+                                     proxies=self.proxy)
             logger.debug(f"Статус-код поднятия лотов: {response.status_code}.")
             if not response.status_code == 200:
                 raise exceptions.StatusCodeIsNot200(response.status_code)
@@ -482,7 +494,8 @@ class Account:
             "id": order_id,
             "csrf_token": self.csrf_token
         }
-        response = requests.post(types.Links.REFUND, headers=headers, data=payload, timeout=self.timeout)
+        response = requests.post(types.Links.REFUND, headers=headers, data=payload, timeout=self.timeout,
+                                 proxies=self.proxy)
         if not response.status_code == 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
 

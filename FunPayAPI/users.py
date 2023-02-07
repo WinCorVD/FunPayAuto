@@ -13,7 +13,8 @@ from . import types
 logger = logging.getLogger("FunPayAPI.users")
 
 
-def get_user(user_id: int, include_currency: bool = False, user_agent: str = "", timeout: float = 10.0) -> types.UserInfo:
+def get_user(user_id: int, include_currency: bool = False, user_agent: str = "", timeout: float = 10.0,
+             proxy: dict | None = None) -> types.UserInfo:
     """
     Получает полную информацию о лотах и категориях пользователя.
 
@@ -25,13 +26,16 @@ def get_user(user_id: int, include_currency: bool = False, user_agent: str = "",
 
     :param timeout: тайм-аут ожидания ответа.
 
+    :param proxy: HTTP/S прокси.
+
     :return: экземпляр класса с информацией о пользователе.
     """
     headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "user-agent": user_agent
     }
-    response = requests.get(f"{types.Links.USER}/{user_id}/", headers=headers, timeout=timeout)
+    proxy = proxy if proxy is not None else {}
+    response = requests.get(f"{types.Links.USER}/{user_id}/", headers=headers, proxies=proxy, timeout=timeout)
     logger.debug(response.status_code)
     if response.status_code == 404:
         raise Exception("Пользователь не найден.")  # todo: создать и добавить кастомное исключение: пользователя не существует.

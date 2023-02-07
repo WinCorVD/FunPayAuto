@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 from datetime import datetime
 import Utils.exceptions
 import itertools
+import requests
 import psutil
 import json
 import sys

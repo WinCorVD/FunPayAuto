@@ -6,6 +6,7 @@ if TYPE_CHECKING:
 import importlib.util
 import configparser
 import traceback
+import requests
 import datetime
 import logging
 import random
@@ -27,6 +28,21 @@ from telegram import auto_response_cp, config_loader_cp, auto_delivery_cp, file_
 logger = logging.getLogger("FPC")
 
 
+def check_proxy(proxy: dict):
+    logger.info("Выполняю проверку прокси...")
+    try:
+        response = requests.get("https://api.myip.com", proxies=proxy, timeout=10.0)
+    except KeyboardInterrupt:
+        return False
+    except:
+        logger.error("Не удалось подключиться к прокси. Убедитесь, данные веедены верно.")
+        logger.debug(traceback.format_exc())
+        return False
+    logger.info(f"Прокси успешно проверен! Запросы к FunPay будут отправлять с "
+                f"IP-адреса $YELLOW{response.json()['ip']}")
+    return True
+
+
 class Cardinal:
     def __init__(self, main_config: ConfigParser,
                  auto_delivery_config: ConfigParser,
@@ -44,8 +60,29 @@ class Cardinal:
         self.AR_CFG = auto_response_config
         self.RAW_AR_CFG = raw_auto_response_config
 
+        self.proxy = {}
+        if self.MAIN_CFG["Proxy"].getboolean("enable"):
+            if self.MAIN_CFG["Proxy"]["ip"] and self.MAIN_CFG["Proxy"]["port"].isnumeric():
+                logger.info("Обнаружен прокси в основном конфиге.")
+
+                ip, port = self.MAIN_CFG["Proxy"]["ip"], self.MAIN_CFG["Proxy"]["port"]
+                self.proxy = {
+                    "https": f"http://{ip}:{port}"
+                }
+
+                if self.MAIN_CFG["Proxy"]["login"] and self.MAIN_CFG["Proxy"]["password"]:
+                    login, password = self.MAIN_CFG["Proxy"]["login"], self.MAIN_CFG["Proxy"]["password"]
+                    self.proxy = {
+                        "https": f"http://{login}:{password}@{ip}:{port}"
+                    }
+
+                if self.MAIN_CFG["Proxy"].getboolean("check"):
+                    if not check_proxy(self.proxy):
+                        sys.exit()
+
         self.account = FunPayAPI.account.Account(self.MAIN_CFG["FunPay"]["golden_key"],
-                                                 self.MAIN_CFG["FunPay"]["user_agent"])
+                                                 self.MAIN_CFG["FunPay"]["user_agent"],
+                                                 proxy=self.proxy)
         self.runner = FunPayAPI.runner.Runner(self.account)
         self.telegram: telegram.bot.TGBot | None = None
 
@@ -155,7 +192,8 @@ class Cardinal:
         while count:
             try:
                 user_lots_info = FunPayAPI.users.get_user(self.account.id,
-                                                          user_agent=self.MAIN_CFG["FunPay"]["user_agent"])
+                                                          user_agent=self.MAIN_CFG["FunPay"]["user_agent"],
+                                                          proxy=self.proxy)
                 categories = user_lots_info.categories
                 lots = user_lots_info.lots
                 logger.info(f"$MAGENTAПолучил информацию о лотах аккаунта. Всего категорий: $YELLOW{len(categories)}.")
@@ -358,11 +396,14 @@ class Cardinal:
                 self.run_handlers(self.post_lots_raise_handlers, (self, cat.game_id, response))
         return min_next_time
 
-    def send_message(self, msg: FunPayAPI.types.Message) -> bool:
+    def send_message(self, msg: FunPayAPI.types.Message, attempts: int = 3) -> bool:
         """
         Отправляет сообщение в чат FunPay.
 
         :param msg: объект MessageEvent.
+
+        :param attempts: кол-во попыток на отправку сообщения.
+
         :return: True, если сообщение доставлено, False, если нет.
         """
         if self.MAIN_CFG["Other"]["watermark"]:
@@ -380,18 +421,40 @@ class Cardinal:
         split_messages = []
         while lines:
             text = "\n".join(lines[:20])
+            if text.strip() == "[a][/a]":
+                continue
             msg_obj = FunPayAPI.types.Message(text, msg.node_id, msg.chat_with, msg.unread)
             split_messages.append(msg_obj)
             lines = lines[20:]
 
         for i in split_messages:
-            response = self.account.send_message(i)
-            if response.get("response") and response.get("response").get("error") is None:
-                self.runner.update_saved_message(i)
-                logger.info(f"Отправил сообщение в чат $YELLOW{msg.node_id}.")
-            else:
-                logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET Подробнее "
-                               f"в файле logs/log.log")
+            attempts = 3
+            while attempts:
+                try:
+                    response = self.account.send_message(i)
+                    if response.get("response") and response.get("response").get("error") is None:
+                        self.runner.update_saved_message(i)
+                        logger.info(f"Отправил сообщение в чат $YELLOW{msg.node_id}.")
+                        break
+                    else:
+                        logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET "
+                                       f"Подробнее в файле logs/log.log")
+                        logger.info(f"Осталось попыток: {attempts}.")
+                        attempts -= 1
+                        time.sleep(1)
+                        continue
+                except:
+                    logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET "
+                                   f"Подробнее в файле logs/log.log")
+                    logger.debug(traceback.format_exc())
+                    logger.info(f"Осталось попыток: {attempts}.")
+                    attempts -= 1
+                    time.sleep(1)
+                    continue
+
+            if not attempts:
+                logger.error(f"Не удалось отправить сообщение в чат $YELLOW{msg.node_id}$RESET: "
+                             f"превышено кол-во попыток.")
                 return False
         return True
 

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
+from telegram import CBT
 from telebot import types
 from telegram import keyboards
 import logging
@@ -23,6 +24,10 @@ def init_config_loader_cp(cardinal: Cardinal, *args):
     bot = tg.bot
 
     def open_config_loader(c: types.CallbackQuery):
+        if c.message.text is None:
+            bot.send_message(c.message.chat.id, "Здесь вы можете загрузить и выгрузить конфиги.",
+                             reply_markup=keyboards.configs())
+            return
         bot.edit_message_text("Здесь вы можете загрузить и выгрузить конфиги.", c.message.chat.id,
                               c.message.id, reply_markup=keyboards.configs())
 
@@ -33,24 +38,42 @@ def init_config_loader_cp(cardinal: Cardinal, *args):
         config_type = c.data.split(":")[1]
         if config_type == "main":
             path = "configs/_main.cfg"
-        elif config_type == "auto_response":
+            text = "Основной конфиг."
+        elif config_type == "autoResponse":
             path = "configs/auto_response.cfg"
-        elif config_type == "auto_delivery":
+            text = "Конфиг авто-ответчика."
+        elif config_type == "autoDelivery":
             path = "configs/auto_delivery.cfg"
+            text = "Конфиг авто-выдачи."
         else:
+            bot.answer_callback_query(c.id)
             return
+
+        back_button = types.InlineKeyboardMarkup()\
+            .add(types.InlineKeyboardButton("◀️ Назад", callback_data="config_loader"))
+
         if not os.path.exists(path):
-            bot.send_message(c.message.chat.id, f"❌ Конфиг {path} не обнаружен.")
+            bot.send_message(c.message.chat.id, f"❌ Конфиг <code>{path}</code> не обнаружен.",
+                             parse_mode="HTML", reply_markup=back_button)
             bot.answer_callback_query(c.id)
-        else:
-            with open(path, "r", encoding="utf-8") as f:
-                bot.send_document(c.message.chat.id, f)
-            logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
-                        f"конфиг $YELLOW{path}$RESET.")
-            bot.answer_callback_query(c.id)
+            return
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = f.read().strip()
+            if not data:
+                bot.send_message(c.message.chat.id, f"❌ Конфиг <code>{path}</code> пуст.",
+                                 parse_mode="HTML", reply_markup=back_button)
+                bot.answer_callback_query(c.id)
+                return
+            f.seek(0)
+            bot.send_document(c.message.chat.id, f, caption=text, reply_markup=back_button)
+
+        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
+                    f"конфиг $YELLOW{path}$RESET.")
+        bot.answer_callback_query(c.id)
 
     tg.cbq_handler(open_config_loader, func=lambda c: c.data == "config_loader")
-    tg.cbq_handler(send_config, func=lambda c: c.data.startswith("download_config:"))
+    tg.cbq_handler(send_config, func=lambda c: c.data.startswith(f"{CBT.DOWNLOAD_CFG}:"))
 
 
 REGISTER_TO_POST_INIT = [init_config_loader_cp]

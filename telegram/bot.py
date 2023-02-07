@@ -22,7 +22,7 @@ import traceback
 from telebot import types
 from telebot.types import InlineKeyboardButton as Button
 
-from telegram import telegram_tools as tg_tools, keyboards
+from telegram import telegram_tools as tg_tools, keyboards, CBT
 from Utils import cardinal_tools
 
 
@@ -578,12 +578,12 @@ class TGBot:
         self.cbq_handler(self.cancel_refund, func=lambda call: call.data.startswith("refund_cancel:"))
         self.cbq_handler(self.refund, func=lambda call: call.data.startswith("refund_confirm:"))
 
-        self.cbq_handler(self.open_cp, func=lambda call: call.data == "main_settings_page")
-        self.cbq_handler(self.open_settings_section, func=lambda call: call.data.startswith("settings:"))
-        self.cbq_handler(self.switch_setting, func=lambda call: call.data.startswith("switch:"))
+        self.cbq_handler(self.open_cp, func=lambda call: call.data == CBT.MAIN)
+        self.cbq_handler(self.open_settings_section, func=lambda call: call.data.startswith(f"{CBT.CATEGORY}:"))
+        self.cbq_handler(self.switch_setting, func=lambda call: call.data.startswith(f"{CBT.SWITCH}:"))
 
-        self.cbq_handler(self.power_off, func=lambda call: call.data.startswith("power_off:"))
-        self.cbq_handler(self.cancel_power_off, func=lambda call: call.data.startswith("cancel_power_off"))
+        self.cbq_handler(self.power_off, func=lambda call: call.data.startswith(f"{CBT.SHUT_DOWN}:"))
+        self.cbq_handler(self.cancel_power_off, func=lambda call: call.data == CBT.CANCEL_SHUTTING_DOWN)
 
         self.cbq_handler(self.cancel_action, func=lambda c: c.data == "clear_state")
 
