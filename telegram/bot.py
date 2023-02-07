@@ -412,14 +412,17 @@ class TGBot:
             try:
                 self.cardinal.account.refund_order(order_id)
             except:
-                logger.error(f"❌ Не удалось вернуть средства по заказу #{order_id}. Следующая попытка через 1 сек.")
+                self.bot.send_message(call.message.chat.id,
+                                      f"❌ Не удалось вернуть средства по заказу #{order_id}. "
+                                      f"Следующая попытка через 1 сек.",
+                                      parse_mode="HTML")
+                attempts -= 1
                 time.sleep(1)
                 continue
 
-            self.bot.send_message(call.message.chat.id, f"✅ Средства по заказу </code>#{order_id}</code> возвращены.",
+            self.bot.send_message(call.message.chat.id, f"✅ Средства по заказу <code>#{order_id}</code> возвращены.",
                                   parse_mode="HTML")
-            keyboard = types.InlineKeyboardMarkup()
-            keyboard.add(open_order_button)
+            keyboard = types.InlineKeyboardMarkup().add(open_order_button)
             self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=keyboard)
             self.bot.answer_callback_query(call.id)
             return
@@ -431,6 +434,7 @@ class TGBot:
         keyboard = types.InlineKeyboardMarkup()
         keyboard.add(refund_button).add(open_order_button)
         self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=keyboard)
+        self.bot.answer_callback_query(call.id)
 
     # Панель управления
     def switch_setting(self, call: types.CallbackQuery):

@@ -496,6 +496,9 @@ class Account:
         }
         response = requests.post(types.Links.REFUND, headers=headers, data=payload, timeout=self.timeout,
                                  proxies=self.proxy)
+        if response.json().get("error"):
+            logger.debug(response.json().get("msg"))
+            raise Exception(response.json().get("msg"))
         if not response.status_code == 200:
             raise exceptions.StatusCodeIsNot200(response.status_code)
 
