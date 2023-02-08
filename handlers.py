@@ -139,7 +139,7 @@ def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageE
 
     text = f"""Сообщение в переписке <a href="https://funpay.com/chat/?node={event.message.node_id}">{event.message.chat_with}</a>.
 
-<b><i>{event.message.chat_with}:</i></b> {tg_tools.format_text(event.message.text)}"""
+<b><i>{event.message.chat_with}:</i></b> <code>{tg_tools.format_text(event.message.text)}</code>"""
 
     button = create_reply_button(event.message.node_id)
     Thread(target=cardinal.telegram.send_notification, args=(text, button), daemon=True).start()
