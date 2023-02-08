@@ -24,13 +24,13 @@ class Runner:
     """
     Класс для получения новых событий с FunPay.
     """
-    def __init__(self, account: account.Account, timeout: float | int = 10.0):
+    def __init__(self, account_instance: account.Account, timeout: float | int = 10.0):
         """
-        :param account: экземпляр класса аккаунта.
+        :param account_instance: экземпляр класса аккаунта.
 
         :param timeout: тайм-аут ожидания ответа на запросы.
         """
-        self.account = account
+        self.account = account_instance
         self.timeout = timeout
 
         self.last_message_event_tag = utils.gen_random_tag()

@@ -6,13 +6,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
-    from telegram.bot import TGBot
+    from tg_bot.bot import TGBot
 
-from telegram import telegram_tools as tg_tools, keyboards, CBT
+from Utils import config_loader as cfg_loader, exceptions as excs, cardinal_tools
 from telebot.types import InlineKeyboardButton as Button
-from Utils import config_loader as cfg_loader
-from Utils import cardinal_tools
-import Utils.exceptions as excs
+from tg_bot import utils, keyboards, CBT
 from telebot import types
 import traceback
 import logging
@@ -141,7 +139,7 @@ def upload_auto_response_config(cardinal: Cardinal, msg: types.Message):
         raw_new_config = cfg_loader.load_raw_auto_response_config("storage/cache/temp_auto_response.cfg")
     except excs.ConfigParseError as e:
         bot.send_message(msg.chat.id, f"❌ Произошла ошибка при обработке конфига авто-выдачи: "
-                                      f"<code>{tg_tools.format_text(str(e))}</code>", parse_mode="HTML")
+                                      f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
         return
     except UnicodeDecodeError:
         bot.send_message(msg.chat.id, "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
@@ -183,7 +181,7 @@ def upload_auto_delivery_config(cardinal: Cardinal, msg: types.Message):
         new_config = cfg_loader.load_auto_delivery_config("storage/cache/temp_auto_delivery.cfg")
     except excs.ConfigParseError as e:
         bot.send_message(msg.chat.id, f"❌ Произошла ошибка при обработке конфига авто-выдачи: "
-                                      f"<code>{tg_tools.format_text(str(e))}</code>", parse_mode="HTML")
+                                      f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
         return
     except UnicodeDecodeError:
         bot.send_message(msg.chat.id, "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
@@ -224,7 +222,7 @@ def upload_main_config(cardinal: Cardinal, msg: types.Message):
         new_config = cfg_loader.load_main_config("storage/cache/temp_main.cfg")
     except excs.ConfigParseError as e:
         bot.send_message(msg.chat.id, f"❌ Произошла ошибка при обработке конфига авто-выдачи: "
-                                      f"<code>{tg_tools.format_text(str(e))}</code>", parse_mode="HTML")
+                                      f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
         return
     except UnicodeDecodeError:
         bot.send_message(msg.chat.id, "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
@@ -285,10 +283,10 @@ def init_uploader(cardinal: Cardinal):
         bot.answer_callback_query(call.id)
 
     tg.msg_handler(main, content_types=["document"])
-    tg.cbq_handler(act_upload_products_file, func=lambda c: c.data == CBT.UPLOAD_PRODUCTS_FILE)
-    tg.cbq_handler(act_upload_auto_response_config, func=lambda c: c.data == "upload_auto_response_config")
-    tg.cbq_handler(act_upload_auto_delivery_config, func=lambda c: c.data == "upload_auto_delivery_config")
-    tg.cbq_handler(act_upload_main_config, func=lambda c: c.data == "upload_main_config")
+    tg.cbq_handler(act_upload_products_file, lambda c: c.data == CBT.UPLOAD_PRODUCTS_FILE)
+    tg.cbq_handler(act_upload_auto_response_config, lambda c: c.data == "upload_auto_response_config")
+    tg.cbq_handler(act_upload_auto_delivery_config, lambda c: c.data == "upload_auto_delivery_config")
+    tg.cbq_handler(act_upload_main_config, lambda c: c.data == "upload_main_config")
 
 
-REGISTER_TO_POST_INIT = [init_uploader]
+BIND_TO_PRE_INIT = [init_uploader]

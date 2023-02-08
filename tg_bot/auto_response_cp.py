@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from telegram import telegram_tools as tg_tools, keyboards, CBT
+from tg_bot import utils, keyboards, CBT
 
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
@@ -85,11 +85,11 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         for cmd in commands:
             if cmd in applied_commands:
 
-                bot.reply_to(m, f"❌ В сете команд дублируется команда <code>{tg_tools.format_text(cmd)}</code>.",
+                bot.reply_to(m, f"❌ В сете команд дублируется команда <code>{utils.escape(cmd)}</code>.",
                              allow_sending_without_reply=True, parse_mode="HTML", reply_markup=error_keyboard)
                 return
             if cmd in cardinal.AR_CFG.sections():
-                bot.reply_to(m, f"❌ Команда <code>{tg_tools.format_text(cmd)}</code> уже существует.",
+                bot.reply_to(m, f"❌ Команда <code>{utils.escape(cmd)}</code> уже существует.",
                              allow_sending_without_reply=True, parse_mode="HTML", reply_markup=error_keyboard)
                 return
             applied_commands.append(cmd)
@@ -115,7 +115,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
                     f"$YELLOW[{raw_command}]$RESET в конфиг авто-ответчика.")
         bot.reply_to(m, f"✅ Добавлена новая секция "
-                        f"<code>[{tg_tools.format_text(raw_command)}]</code> в конфиг авто-ответчика.",
+                        f"<code>[{utils.escape(raw_command)}]</code> в конфиг авто-ответчика.",
                      allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
     def open_edit_command_cp(c: types.CallbackQuery):
@@ -139,13 +139,13 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         notification_text = command_obj.get("notificationText")
         notification_text = notification_text if notification_text else "Пользователь $username ввел команду $message_text."
 
-        message = f"""<b>[{tg_tools.format_text(command)}]</b>
+        message = f"""<b>[{utils.escape(command)}]</b>
 
-<b><i>Ответ:</i></b> <code>{tg_tools.format_text(command_obj["response"])}</code>
+<b><i>Ответ:</i></b> <code>{utils.escape(command_obj["response"])}</code>
 
 <b><i>Отправлять уведомления в Telegram:</i></b> <b><u>{telegram_notification_text}</u></b>
 
-<b><i>Текст уведомления:</i></b> <code>{tg_tools.format_text(notification_text)}</code>
+<b><i>Текст уведомления:</i></b> <code>{utils.escape(notification_text)}</code>
 
 <i>Обновлено:</i>  <code>{datetime.datetime.now().strftime('%H:%M:%S')}</code>"""
         bot.edit_message_text(message, c.message.chat.id, c.message.id, reply_markup=keyboard, parse_mode="HTML")
@@ -192,8 +192,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
             .row(Button("◀️ Назад", callback_data=f"{CBT.EDIT_CMD}:{command_index}:{offset}"),
                  Button("✏️ Изменить", callback_data=f"{CBT.EDIT_CMD_RESPONSE_TEXT}:{command_index}:{offset}"))
 
-        bot.reply_to(m, f"✅ Текст ответа команды / сета команд <code>[{tg_tools.format_text(command)}]</code> "
-                        f"изменен на <code>{tg_tools.format_text(response_text)}</code>",
+        bot.reply_to(m, f"✅ Текст ответа команды / сета команд <code>[{utils.escape(command)}]</code> "
+                        f"изменен на <code>{utils.escape(response_text)}</code>",
                      allow_sending_without_reply=True,
                      parse_mode="HTML", reply_markup=keyboard)
 
@@ -237,8 +237,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
             .row(Button("◀️ Назад", callback_data=f"{CBT.EDIT_CMD}:{command_index}:{offset}"),
                  Button("✏️ Изменить", callback_data=f"{CBT.EDIT_CMD_NOTIFICATION_TEXT}:{command_index}:{offset}"))
 
-        bot.reply_to(m, f"✅ Текст уведомления команды / сета команд <code>[{tg_tools.format_text(command)}]</code> "
-                        f"изменен на <code>{tg_tools.format_text(notification_text)}</code>",
+        bot.reply_to(m, f"✅ Текст уведомления команды / сета команд <code>[{utils.escape(command)}]</code> "
+                        f"изменен на <code>{utils.escape(notification_text)}</code>",
                      allow_sending_without_reply=True,
                      parse_mode="HTML", reply_markup=keyboard)
 
@@ -292,24 +292,23 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         bot.answer_callback_query(c.id)
 
     # Регистрируем хэндлеры
-    tg.cbq_handler(open_commands_list, func=lambda c: c.data.startswith(f"{CBT.CMD_LIST}:"))
+    tg.cbq_handler(open_commands_list, lambda c: c.data.startswith(f"{CBT.CMD_LIST}:"))
 
-    tg.cbq_handler(act_add_command, func=lambda c: c.data == CBT.ADD_CMD)
+    tg.cbq_handler(act_add_command, lambda c: c.data == CBT.ADD_CMD)
     tg.msg_handler(add_command, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_CMD))
 
-    tg.cbq_handler(open_edit_command_cp, func=lambda c: c.data.startswith(f"{CBT.EDIT_CMD}:"))
+    tg.cbq_handler(open_edit_command_cp, lambda c: c.data.startswith(f"{CBT.EDIT_CMD}:"))
 
-    tg.cbq_handler(act_edit_command_response, func=lambda c: c.data.startswith(f"{CBT.EDIT_CMD_RESPONSE_TEXT}:"))
+    tg.cbq_handler(act_edit_command_response, lambda c: c.data.startswith(f"{CBT.EDIT_CMD_RESPONSE_TEXT}:"))
     tg.msg_handler(edit_command_response,
                    func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.EDIT_CMD_RESPONSE_TEXT))
 
-    tg.cbq_handler(act_edit_command_notification,
-                   func=lambda c: c.data.startswith(f"{CBT.EDIT_CMD_NOTIFICATION_TEXT}:"))
+    tg.cbq_handler(act_edit_command_notification, lambda c: c.data.startswith(f"{CBT.EDIT_CMD_NOTIFICATION_TEXT}:"))
     tg.msg_handler(edit_command_notification,
                    func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.EDIT_CMD_NOTIFICATION_TEXT))
 
-    tg.cbq_handler(switch_notification, func=lambda c: c.data.startswith(f"{CBT.SWITCH_CMD_NOTIFICATION}:"))
-    tg.cbq_handler(del_command, func=lambda c: c.data.startswith(f"{CBT.DEL_CMD}:"))
+    tg.cbq_handler(switch_notification, lambda c: c.data.startswith(f"{CBT.SWITCH_CMD_NOTIFICATION}:"))
+    tg.cbq_handler(del_command, lambda c: c.data.startswith(f"{CBT.DEL_CMD}:"))
 
 
-REGISTER_TO_POST_INIT = [init_auto_response_cp]
+BIND_TO_PRE_INIT = [init_auto_response_cp]

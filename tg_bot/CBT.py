@@ -8,7 +8,6 @@ MAIN = "settings_main_page"
 Callback для открытия основного меню настроек.
 """
 
-
 CATEGORY = "category"
 """
 Callback для открытия определенной категории настроек.
@@ -280,6 +279,48 @@ config: str - тип конфига.
 
 
 # Прочее
+REQUEST_REFUND = "request_refund"
+"""
+Callback для обновления меню с действиями по заказу (уточнение по возврату средств)
+Использование: CBT.REQUEST_REFUND:order_id
+
+order_id: str - ID заказа (без #)
+"""
+
+REFUND_CONFIRMED = "refund_confirmed"
+"""
+Callback для подтверждения возврата средств.
+Использование: CBT.REFUND_CONFIRMED:order_id
+
+order_id: str - ID заказа (без #)
+"""
+
+REFUND_CANCELLED = "refund_cancelled"
+"""
+Callback для отмены возврата средств.
+Использование: CBT.REFUND_CANCELLED:order_id
+
+order_id: str - ID заказа (без #)
+"""
+
+
+BAN = "ban"
+"""
+Callback для активации режима ввода никнейма FunPay пользователя для добавления его в ЧС.
+
+
+User-state: ожидается сообщение с никнеймом FunPay пользователя для добавления его в ЧС.
+"""
+
+UNBAN = "unban"
+"""
+Callback для активации режима ввода никнейма FunPay пользователя для удаления его из ЧС.
+
+
+User-state: ожидается сообщение с никнеймом FunPay пользователя для удаления его из ЧС.
+"""
+
+
 SHUT_DOWN = "shut_down"
 """
 Callback для отключения бота.
@@ -289,8 +330,32 @@ stage: int - текущая стадия подтверждения (0-6)
 instance_id: int - ID запуска FPC.
 """
 
-
 CANCEL_SHUTTING_DOWN = "cancel_shutting_down"
 """
 Callback для отмены отключения бота.
+"""
+
+
+SEND_FP_MESSAGE = "to_node"
+"""
+Callback для отправки сообщения в чат FunPay.
+Использование: CBT.SEND_FP_MESSAGE:node_id:username
+
+node_id: int - ID переписки, в которую нужно отправить сообщение.
+username: str - никнейм пользователя, переписка с которым ведется.
+"""
+
+
+MANUAL_AD_TEST = "manual_auto_delivery_test"
+"""
+Callback для активации режима ввода названия лота для теста авто-выдачи.
+
+
+User-state: ожидается сообщение с названием лота для теста авто-выдачи.
+"""
+
+
+CLEAR_USER_STATE = "clear_state"
+"""
+Callback для установки состояния пользователя на None.
 """

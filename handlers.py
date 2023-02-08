@@ -19,8 +19,7 @@ import traceback
 from threading import Thread
 
 import telebot.types
-from telebot.types import InlineKeyboardButton as Button
-from telegram import telegram_tools as tg_tools
+from tg_bot import utils, keyboards, CBT
 
 
 logger = logging.getLogger("FPC.handlers")
@@ -53,32 +52,6 @@ ORDER_HTML_TEMPLATE = """<a href="https://funpay.com/orders/DELIVERY_TEST/" clas
         <div class="tc-status text-primary">Оплачен</div>
         <div class="tc-price text-nowrap tc-seller-sum">999999.0<span class="unit">₽</span></div>
 </a>"""
-
-
-def create_reply_button(node_id: int) -> telebot.types.InlineKeyboardMarkup:
-    """
-    Генерирует кнопку для отправки сообщения из Telegram в ЛС пользователю FunPay.
-
-    :param node_id: ID переписки, в которую нужно отправить сообщение.
-
-    :return: экземпляр кнопки (клавиатуры).
-    """
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    reply_button = telebot.types.InlineKeyboardButton(text="📨 Ответить", callback_data=f"to_node:{node_id}")
-    keyboard.add(reply_button)
-    return keyboard
-
-
-def create_new_order_keyboard(order_id: str) -> telebot.types.InlineKeyboardMarkup:
-    """
-    Генерирует клавиатуру для сообщения о новом оредере.
-    :param order_id: ID оредра.
-    :return: экземпляр кнопки (клавиатуры).
-    """
-    keyboard = telebot.types.InlineKeyboardMarkup()\
-        .add(Button(text="💸 Вернуть деньги", callback_data=f"refund_request:{order_id[1:]}")) \
-        .add(Button(text="🌐 Открыть страницу заказа", url=f"https://funpay.com/orders/{order_id[1:]}/"))
-    return keyboard
 
 
 # Новое сообщение (REGISTER_TO_NEW_MESSAGE)
@@ -139,9 +112,9 @@ def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageE
 
     text = f"""Сообщение в переписке <a href="https://funpay.com/chat/?node={event.message.node_id}">{event.message.chat_with}</a>.
 
-<b><i>{event.message.chat_with}:</i></b> <code>{tg_tools.format_text(event.message.text)}</code>"""
+<b><i>{event.message.chat_with}:</i></b> <code>{utils.escape(event.message.text)}</code>"""
 
-    button = create_reply_button(event.message.node_id)
+    button = keyboards.reply(event.message.node_id, event.message.chat_with)
     Thread(target=cardinal.telegram.send_notification, args=(text, button), daemon=True).start()
 
 
@@ -161,7 +134,7 @@ def send_command_notification_handler(cardinal: Cardinal, event: NewMessageEvent
         return
 
     if cardinal.AR_CFG[command].get("notificationText") is None:
-        text = f"Пользователь {event.message.chat_with} ввел команду \"{tg_tools.format_text(command)}\"."
+        text = f"Пользователь {event.message.chat_with} ввел команду \"{utils.escape(command)}\"."
     else:
         text = cardinal_tools.format_msg_text(cardinal.AR_CFG[command]["notificationText"], event.message)
 
@@ -233,19 +206,15 @@ def check_lot_products_count(config_obj: configparser.SectionProxy) -> int:
     return cardinal_tools.get_products_count(f"storage/products/{file_name}")
 
 
-def update_lots_state(cardinal: Cardinal, event: OrdersListChangedEvent):
-    if not any([cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"),
-                cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable")]):
-        return
-
+def update_current_lots_handler(cardinal: Cardinal, event: OrdersListChangedEvent):
     logger.info("Получаю информацию о лотах...")
     attempts = 3
-    lots_info = []
     while attempts:
         try:
-            lots_info = FunPayAPI.users.get_user(cardinal.account.id,
-                                                 user_agent=cardinal.MAIN_CFG["FunPay"]["user_agent"],
-                                                 proxy=cardinal.proxy).lots
+            cardinal.current_lots = FunPayAPI.users.get_user(cardinal.account.id,
+                                                             user_agent=cardinal.MAIN_CFG["FunPay"]["user_agent"],
+                                                             proxy=cardinal.proxy).lots
+            cardinal.current_lots_last_tag = event.tag
             break
         except:
             logger.error("Произошла ошибка при получении информации о лотах.")
@@ -255,71 +224,6 @@ def update_lots_state(cardinal: Cardinal, event: OrdersListChangedEvent):
     if not attempts:
         logger.error("Не удалось получить информацию о лотах: превышено кол-во попыток.")
         return
-
-    lots_ids = [i.id for i in lots_info]
-
-    # -1 - деактивировать
-    # 0 - ничего не делать
-    # 1 - восстановить
-    current_task = 0
-
-    for lot in cardinal.lots:
-        config_obj = get_lot_config_by_name(cardinal, lot.title)
-
-        # ЕСЛИ ЛОТ УЖЕ ДЕАКТИВИРОВАН
-        if lot.id not in lots_ids:
-            # ЕСЛИ ЛОТ !НЕ! НАЙДЕН В КОНФИГЕ АВТО-ВЫДАЧИ И ВКЛЮЧЕНО АВТО-ВОССТАНОВЛЕНИЕ
-            if config_obj is None:
-                if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"):
-                    current_task = 1
-
-            # ЕСЛИ ЛОТ НАЙДЕН В КОНФИГЕ АВТО-ВЫДАЧИ
-            else:
-                # Если авто-восстановление вкл. и не выкл. в лоте
-                if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore") and \
-                        config_obj.get("disableAutoRestore") in ["0", None]:
-                    # Если авто-деактивация выключена - восстанавливаем в любом случае
-                    if not cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"):
-                        current_task = 1
-                    # Если авто-деактивация включена - восстанавливаем только если есть товары
-                    else:
-                        if check_lot_products_count(config_obj):
-                            current_task = 1
-
-        # ЕСЛИ ЛОТ АКТИВЕН
-        else:
-            if config_obj:
-                products_count = check_lot_products_count(config_obj)
-                if all((not products_count, cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"),
-                        config_obj.get("disableAutoDisable") in ["0", None])):
-                    current_task = -1
-
-        if current_task:
-            time.sleep(0.2)
-            attempts = 3
-            while attempts:
-                try:
-                    lot_info = cardinal.account.get_lot_info(lot.id, lot.game_id)
-                    if current_task == 1:
-                        cardinal.account.save_lot(lot_info, active=True)
-                        logger.info(f"Восстановил лот $YELLOW{lot.title}$RESET.")
-                    elif current_task == -1:
-                        cardinal.account.save_lot(lot_info, active=False)
-                        logger.info(f"Деактивировал лот $YELLOW{lot.title}$RESET.")
-                    break
-                except:
-                    logger.error(f"Произошла ошибка при изменении состояния лота $YELLOW{lot.title}$RESET.")
-                    logger.debug(traceback.format_exc())
-                    attempts -= 1
-                    time.sleep(2)
-            if not attempts:
-                logger.error(f"Не удалось изменить состояние лота $YELLOW{lot.title}$RESET: превышено кол-во попыток.")
-                continue
-        time.sleep(0.5)
-
-
-def update_lots_state_handler(cardinal: Cardinal, event: OrdersListChangedEvent):
-    Thread(target=update_lots_state, args=(cardinal, event), daemon=True).start()
 
 
 # Новый ордер (REGISTER_TO_NEW_ORDER)
@@ -341,15 +245,13 @@ def send_new_order_notification_handler(cardinal: Cardinal, event: NewOrderEvent
     if not int(cardinal.MAIN_CFG["Telegram"]["newOrderNotification"]):
         return
 
-    node_id = cardinal.account.get_node_id_by_username(event.order.buyer_username)
-
     text = f"""<b>Новый заказ</b>  <code>{event.order.id}</code>
 
 <b><i>Покупатель:</i></b>  <code>{event.order.buyer_username}</code>
 <b><i>Сумма:</i></b>  <code>{event.order.price}</code>
-<b><i>Лот:</i></b>  <code>{tg_tools.format_text(event.order.title)}</code>"""
+<b><i>Лот:</i></b>  <code>{utils.escape(event.order.title)}</code>"""
 
-    keyboard = create_new_order_keyboard(event.order.id)
+    keyboard = keyboards.new_order(event.order.id[1:])
     Thread(target=cardinal.telegram.send_notification, args=(text, keyboard), daemon=True).start()
 
 
@@ -453,9 +355,92 @@ def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent,
         text = f"""Успешно выдал товар для ордера <code>{event.order.id}</code>.
 
 ----- ТОВАР -----
-{tg_tools.format_text(delivery_text)}"""
+{utils.escape(delivery_text)}"""
 
     Thread(target=cardinal.telegram.send_notification, args=(text, ), daemon=True).start()
+
+
+def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):
+    """
+    Обновляет состояние лота
+
+    :param task: -1 - деактивировать лот. 1 - активировать лот.
+    """
+    attempts = 3
+    while attempts:
+        try:
+            lot_info = cardinal.account.get_lot_info(lot.id, lot.game_id)
+            if task == 1:
+                cardinal.account.save_lot(lot_info, active=True)
+                logger.info(f"Восстановил лот $YELLOW{lot.title}$RESET.")
+            elif task == -1:
+                cardinal.account.save_lot(lot_info, active=False)
+                logger.info(f"Деактивировал лот $YELLOW{lot.title}$RESET.")
+            return
+        except:
+            logger.error(f"Произошла ошибка при изменении состояния лота $YELLOW{lot.title}$RESET."
+                         "Подробнее в файле logs/log.log")
+            logger.debug(traceback.format_exc())
+            attempts -= 1
+            time.sleep(2)
+    logger.error(f"Не удалось изменить состояние лота $YELLOW{lot.title}$RESET: превышено кол-во попыток.")
+
+
+def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
+    if not any([cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"),
+                cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable")]):
+        return
+    if cardinal.current_lots_last_tag == event.tag:
+        return
+
+    lots_ids = [i.id for i in cardinal.current_lots]
+
+    # -1 - деактивировать
+    # 0 - ничего не делать
+    # 1 - восстановить
+    current_task = 0
+
+    for lot in cardinal.lots:
+        config_obj = get_lot_config_by_name(cardinal, lot.title)
+
+        # Если лот уже деактивирован
+        if lot.id not in lots_ids:
+            # и не найден в конфиге авто-выдачи (глобальное авто-восстановление включено)
+            if config_obj is None:
+                if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"):
+                    current_task = 1
+
+            # и найден в конфиге авто-выдачи
+            else:
+                # и глобальное авто-восстановление вкл. + не выключено в самом лоте в конфиге авто-выдачи
+                if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore") and \
+                        config_obj.get("disableAutoRestore") in ["0", None]:
+                    # если глобальная авто-деактивация выключена - восстанавливаем.
+                    if not cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"):
+                        current_task = 1
+                    # если глобальная авто-деактивация включена - восстанавливаем только если есть товары.
+                    else:
+                        if check_lot_products_count(config_obj):
+                            current_task = 1
+
+        # Если же лот активен
+        else:
+            # и найден в конфиге авто-выдачи
+            if config_obj:
+                products_count = check_lot_products_count(config_obj)
+                # и все условия выполнены: нет товаров + включено глобальная авто-деактивация + она не выключена в
+                # самом лоте в конфига авто-выдачи - отключаем.
+                if all((not products_count, cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"),
+                        config_obj.get("disableAutoDisable") in ["0", None])):
+                    current_task = -1
+
+        if current_task:
+            update_lot_state(cardinal, lot, current_task)
+            time.sleep(0.5)
+
+
+def update_lots_state_handler(cardinal: Cardinal, event: NewOrderEvent, *args):
+    Thread(target=update_lots_states, args=(cardinal, event), daemon=True).start()
 
 
 # REGISTER_TO_POST_START
@@ -470,26 +455,31 @@ def send_bot_started_notification_handler(cardinal: Cardinal, *args) -> None:
         curr = ""
     else:
         curr = cardinal.account.currency
-    text = f"""<b><u>Бот запущен!</u></b>
+    text = f"""✅ <b><u>FunPay Cardinal запущен!</u></b>
 
-<b><i>Аккаунт:</i></b>  <code>{cardinal.account.username}</code> | <code>{cardinal.account.id}</code>
-<b><i>Баланс:</i></b> <code>{cardinal.account.balance}{curr}</code>
-<b><i>Незавершенных ордеров:</i></b>  <code>{cardinal.account.active_orders}</code>"""
-    cardinal.telegram.send_notification(text)
+👑 <b><i>Аккаунт:</i></b>  <code>{cardinal.account.username}</code> | <code>{cardinal.account.id}</code>
+💰 <b><i>Баланс:</i></b> <code>{cardinal.account.balance}{curr}</code>
+📊 <b><i>Незавершенных ордеров:</i></b>  <code>{cardinal.account.active_orders}</code>"""
+
+    for i in cardinal.telegram.init_messages:
+        try:
+            cardinal.telegram.bot.edit_message_text(text, i[0], i[1], parse_mode="HTML")
+        except:
+            continue
 
 
-REGISTER_TO_NEW_MESSAGE = [log_msg_handler,
-                           send_response_handler,
-                           send_new_message_notification_handler,
-                           send_command_notification_handler,
-                           test_auto_delivery_handler]
+BIND_TO_NEW_MESSAGE = [log_msg_handler,
+                       send_response_handler,
+                       send_new_message_notification_handler,
+                       send_command_notification_handler,
+                       test_auto_delivery_handler]
 
-REGISTER_TO_POST_LOTS_RAISE = [send_categories_raised_notification_handler]
+BIND_TO_POST_LOTS_RAISE = [send_categories_raised_notification_handler]
 
-REGISTER_TO_ORDERS_LIST_CHANGED = [update_lots_state_handler]
+BIND_TO_ORDERS_LIST_CHANGED = [update_current_lots_handler]
 
-REGISTER_TO_NEW_ORDER = [log_new_order_handler, send_new_order_notification_handler, deliver_product_handler]
+BIND_TO_NEW_ORDER = [log_new_order_handler, send_new_order_notification_handler, deliver_product_handler]
 
-REGISTER_TO_POST_DELIVERY = [send_delivery_notification_handler]
+BIND_TO_POST_DELIVERY = [send_delivery_notification_handler, update_lots_state_handler]
 
-REGISTER_TO_POST_START = [send_bot_started_notification_handler]
+BIND_TO_POST_START = [send_bot_started_notification_handler]

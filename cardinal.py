@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from configparser import ConfigParser
 
+from tg_bot import auto_response_cp, config_loader_cp, auto_delivery_cp, file_uploader
 import importlib.util
 import configparser
 import traceback
@@ -18,11 +19,9 @@ import FunPayAPI
 import handlers
 
 from Utils import cardinal_tools
-import telegram.bot
+import tg_bot.bot
 
 from threading import Thread
-
-from telegram import auto_response_cp, config_loader_cp, auto_delivery_cp, file_uploader
 
 
 logger = logging.getLogger("FPC")
@@ -84,7 +83,7 @@ class Cardinal:
                                                  self.MAIN_CFG["FunPay"]["user_agent"],
                                                  proxy=self.proxy)
         self.runner = FunPayAPI.runner.Runner(self.account)
-        self.telegram: telegram.bot.TGBot | None = None
+        self.telegram: tg_bot.bot.TGBot | None = None
 
         self.running = False
         self.run_id = 0
@@ -94,12 +93,15 @@ class Cardinal:
         # формат хранения: {id игры: следующее время поднятия}
         self.raise_time = {}
         self.lots: list[FunPayAPI.types.Lot] = []
-        self.telegram_lots: list[FunPayAPI.types.Lot] = []
         self.categories: list[FunPayAPI.types.Category] = []
-        self.last_info_update = datetime.datetime.now()
+        self.telegram_lots: list[FunPayAPI.types.Lot] = []  # Для Telegram-ПУ.
+        self.last_telegram_lots_update = datetime.datetime.now()
+        self.current_lots: list[FunPayAPI.types.Lot] = []  # Для хэндлеров (авто-восстановление, авто-деактивация)
+        self.current_lots_last_tag: str | None = None
         self.block_list: list[str] = []
 
         # Хэндлеры
+        self.pre_init_handlers = []
         self.post_init_handlers = []
         self.pre_start_handlers = []
         self.post_start_handlers = []
@@ -120,23 +122,24 @@ class Cardinal:
         self.pre_lots_raise_handlers = []
         self.post_lots_raise_handlers = []
 
-        self.handler_reg_var_names = {
-            "REGISTER_TO_POST_INIT": self.post_init_handlers,
-            "REGISTER_TO_PRE_START": self.pre_start_handlers,
-            "REGISTER_TO_POST_START": self.post_start_handlers,
-            "REGISTER_TO_PRE_STOP": self.pre_stop_handlers,
-            "REGISTER_TO_POST_STOP": self.post_stop_handlers,
-            "REGISTER_TO_INIT_MESSAGE": self.init_message_handlers,
-            "REGISTER_TO_MESSAGES_LIST_CHANGED": self.messages_list_changed_handlers,
-            "REGISTER_TO_NEW_MESSAGE": self.new_message_handlers,
-            "REGISTER_TO_INIT_ORDER": self.init_order_handlers,
-            "REGISTER_TO_NEW_ORDER": self.new_order_handlers,
-            "REGISTER_TO_ORDERS_LIST_CHANGED": self.orders_list_changed_handlers,
-            "REGISTER_TO_ORDER_STATUS_CHANGED": self.order_status_changed_handlers,
-            "REGISTER_TO_PRE_DELIVERY": self.pre_delivery_handlers,
-            "REGISTER_TO_POST_DELIVERY": self.post_delivery_handlers,
-            "REGISTER_TO_PRE_LOTS_RAISE": self.pre_lots_raise_handlers,
-            "REGISTER_TO_POST_LOTS_RAISE": self.post_lots_raise_handlers
+        self.handler_bind_var_names = {
+            "BIND_TO_PRE_INIT": self.pre_init_handlers,
+            "BIND_TO_POST_INIT": self.post_init_handlers,
+            "BIND_TO_PRE_START": self.pre_start_handlers,
+            "BIND_TO_POST_START": self.post_start_handlers,
+            "BIND_TO_PRE_STOP": self.pre_stop_handlers,
+            "BIND_TO_POST_STOP": self.post_stop_handlers,
+            "BIND_TO_INIT_MESSAGE": self.init_message_handlers,
+            "BIND_TO_MESSAGES_LIST_CHANGED": self.messages_list_changed_handlers,
+            "BIND_TO_NEW_MESSAGE": self.new_message_handlers,
+            "BIND_TO_INIT_ORDER": self.init_order_handlers,
+            "BIND_TO_NEW_ORDER": self.new_order_handlers,
+            "BIND_TO_ORDERS_LIST_CHANGED": self.orders_list_changed_handlers,
+            "BIND_TO_ORDER_STATUS_CHANGED": self.order_status_changed_handlers,
+            "BIND_TO_PRE_DELIVERY": self.pre_delivery_handlers,
+            "BIND_TO_POST_DELIVERY": self.post_delivery_handlers,
+            "BIND_TO_PRE_LOTS_RAISE": self.pre_lots_raise_handlers,
+            "BIND_TO_POST_LOTS_RAISE": self.post_lots_raise_handlers,
         }
 
     def __init_account(self) -> None:
@@ -151,7 +154,7 @@ class Cardinal:
                     logger.info(line)
                 break
             except TimeoutError:
-                logger.warning("Не удалось загрузить данные об аккаунте: превышен тайм-аут ожидания.")
+                logger.error("Не удалось загрузить данные об аккаунте: превышен тайм-аут ожидания.")
                 logger.warning("Повторю попытку через 2 секунды...")
                 time.sleep(2)
             except (FunPayAPI.exceptions.StatusCodeIsNot200, FunPayAPI.exceptions.AccountDataNotfound) as e:
@@ -289,13 +292,14 @@ class Cardinal:
         if update_cardinal_lots:
             self.categories = categories
             self.lots = lots
+            self.current_lots = lots
             self.lots_ids = [i.id for i in self.lots]
             logger.info(f"Кардинал обновил информацию об активных лотах "
                         f"$YELLOW({len(lots)})$RESET и категориях $YELLOW({len(categories)})$RESET. "
                         f"Изменения применены к авто-восстановлению и авто-деактивации.")
         if update_telegram_lots:
             self.telegram_lots = lots
-            self.last_info_update = datetime.datetime.now()
+            self.last_telegram_lots_update = datetime.datetime.now()
             logger.info(f"Обновлена информация об активных лотах $YELLOW({len(lots)})$RESET для ПУ TG.")
         logger.info("Кэширую данные о категориях...")
         cardinal_tools.cache_categories(self.categories, cached_categories)
@@ -305,7 +309,7 @@ class Cardinal:
         """
         Инициализирует Telegram бота.
         """
-        self.telegram = telegram.bot.TGBot(self)
+        self.telegram = tg_bot.bot.TGBot(self)
         self.telegram.init()
 
     def __add_handlers(self, plugin) -> None:
@@ -314,12 +318,12 @@ class Cardinal:
 
         :param plugin: модуль (плагин)
         """
-        for name in self.handler_reg_var_names:
+        for name in self.handler_bind_var_names:
             try:
                 functions = getattr(plugin, name)
             except AttributeError:
                 continue
-            self.handler_reg_var_names[name].extend(functions)
+            self.handler_bind_var_names[name].extend(functions)
 
         logger.info(f"Хэндлеры из $YELLOW{plugin.__name__}.py$RESET зарегистрированы.")
 
@@ -428,7 +432,6 @@ class Cardinal:
             lines = lines[20:]
 
         for i in split_messages:
-            attempts = 3
             while attempts:
                 try:
                     response = self.account.send_message(i)
@@ -549,11 +552,6 @@ class Cardinal:
     # Управление процессом
     def init(self):
         self.block_list = cardinal_tools.load_block_list()
-        self.__init_account()
-        self.__init_lots_and_categories()
-
-        self.__add_handlers(handlers)
-        self.__load_plugins()
 
         if int(self.MAIN_CFG["Telegram"]["enabled"]):
             self.__init_telegram()
@@ -561,6 +559,17 @@ class Cardinal:
             self.__add_handlers(auto_delivery_cp)
             self.__add_handlers(config_loader_cp)
             self.__add_handlers(file_uploader)
+
+        self.run_handlers(self.pre_init_handlers, (self, ))
+
+        if self.MAIN_CFG["Telegram"].getboolean("enabled"):
+            Thread(target=self.telegram.run, daemon=True).start()
+
+        self.__init_account()
+        self.__init_lots_and_categories()
+
+        self.__add_handlers(handlers)
+        self.__load_plugins()
 
         self.run_handlers(self.post_init_handlers, (self, ))
 
@@ -570,8 +579,6 @@ class Cardinal:
         self.run_handlers(self.pre_start_handlers, (self,))
         self.run_handlers(self.post_start_handlers, (self,))
 
-        if self.telegram:
-            Thread(target=self.telegram.run, daemon=True).start()
         Thread(target=self.lots_raise_loop, daemon=True).start()
         Thread(target=self.update_session_loop, daemon=True).start()
         self.process_events()

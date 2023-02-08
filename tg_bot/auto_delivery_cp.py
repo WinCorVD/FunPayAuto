@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from telegram import telegram_tools as tg_tools, keyboards, CBT
+from tg_bot import utils, keyboards, CBT
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
 
@@ -108,8 +108,8 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
         bot.edit_message_text(f"""Выберите интересующий вас лот (все лоты получена напрямую с вашей страницы FunPay).
 
 """
-                              f"""Время последнего обновления: """
-                              f"""<code>{cardinal.last_info_update.strftime("%d.%m.%Y %H:%M:%S")}</code>""",
+                              f"""<i>Время последнего сканирования: </i>"""
+                              f"""<code>{cardinal.last_telegram_lots_update.strftime("%d.%m.%Y %H:%M:%S")}</code>""",
                               c.message.chat.id, c.message.id,
                               parse_mode="HTML", reply_markup=keyboards.funpay_lots_list(cardinal, offset))
         bot.answer_callback_query(c.id)
@@ -137,7 +137,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
                  Button("➕ Добавить другой", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{fp_lots_offset}"))
 
         if lot in cardinal.AD_CFG.sections():
-            bot.reply_to(m, f"❌ Лот <code>{tg_tools.format_text(lot)}</code> уже есть в конфиге авто-выдачи.",
+            bot.reply_to(m, f"❌ Лот <code>{utils.escape(lot)}</code> уже есть в конфиге авто-выдачи.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=error_keyboard)
             return
 
@@ -157,7 +157,7 @@ $product""")
 
         logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
                     f"$YELLOW[{lot}]$RESET в конфиг авто-выдачи.")
-        bot.send_message(m.chat.id, f"✅ Добавлена новая секция <code>{tg_tools.format_text(lot)}</code> в конфиг "
+        bot.send_message(m.chat.id, f"✅ Добавлена новая секция <code>{utils.escape(lot)}</code> в конфиг "
                                     f"авто-выдачи.", parse_mode="HTML", reply_markup=keyboard)
 
     def open_products_files_list(c: types.CallbackQuery):
@@ -195,7 +195,7 @@ $product""")
                 .row(Button("◀️ Назад", callback_data=f"{CBT.CATEGORY}:autoDelivery"),
                      Button("➕ Создать другой", callback_data=CBT.CREATE_PRODUCTS_FILE),
                      Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{file_index}:{offset}"))
-            bot.reply_to(m, f"❌ Файл <code>storage/products/{tg_tools.format_text(file_name)}</code> уже существует.",
+            bot.reply_to(m, f"❌ Файл <code>storage/products/{utils.escape(file_name)}</code> уже существует.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
             return
 
@@ -208,7 +208,7 @@ $product""")
                 .row(Button("◀️ Назад", callback_data=f"{CBT.CATEGORY}:autoDelivery"),
                      Button("➕ Создать другой", callback_data=CBT.CREATE_PRODUCTS_FILE))
             bot.reply_to(m, f"❌ Произошла ошибка при создании файла "
-                            f"<code>storage/products/{tg_tools.format_text(file_name)}</code>. Подробнее в файле "
+                            f"<code>storage/products/{utils.escape(file_name)}</code>. Подробнее в файле "
                             f"<code>logs/log.log</code>.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
@@ -220,7 +220,7 @@ $product""")
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{file_index}:{offset}"))
         logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET создал файл для товаров "
                     f"$YELLOWstorage/products/{file_name}$RESET.")
-        bot.send_message(m.chat.id, f"✅ Файл <code>storage/products/{tg_tools.format_text(file_name)}</code> создан.",
+        bot.send_message(m.chat.id, f"✅ Файл <code>storage/products/{utils.escape(file_name)}</code> создан.",
                          parse_mode="HTML", reply_markup=keyboard)
 
     # Меню настройки лотов.
@@ -237,7 +237,7 @@ $product""")
         lot = cardinal.AD_CFG.sections()[lot_index]
         lot_obj = cardinal.AD_CFG[lot]
 
-        bot.edit_message_text(tg_tools.generate_lot_info_text(lot, lot_obj),
+        bot.edit_message_text(utils.generate_lot_info_text(lot, lot_obj),
                               c.message.chat.id, c.message.id, parse_mode="HTML",
                               reply_markup=keyboards.edit_lot(cardinal, lot_index, offset))
         bot.answer_callback_query(c.id)
@@ -273,7 +273,7 @@ $product""")
                  Button("✏️ Изменить", callback_data=f"{CBT.EDIT_LOT_DELIVERY_TEXT}:{lot_index}:{offset}"))
 
         if lot_obj.get("productsFileName") is not None and "$product" not in new_response:
-            bot.reply_to(m, f"❌ К лоту <code>[{tg_tools.format_text(lot)}]</code> привязан файл с "
+            bot.reply_to(m, f"❌ К лоту <code>[{utils.escape(lot)}]</code> привязан файл с "
                             f"товарами, однако в тексте ответа нет переменной <code>$product</code>.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
             return
@@ -284,8 +284,8 @@ $product""")
         logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст выдачи "
                     f"лота $YELLOW[{lot}]$RESET на $YELLOW\"{new_response}\"$RESET.")
 
-        bot.reply_to(m, f"✅ Ответ для лота <code>{tg_tools.format_text(lot)}</code> изменен на "
-                        f"<code>{tg_tools.format_text(new_response)}</code>",
+        bot.reply_to(m, f"✅ Ответ для лота <code>{utils.escape(lot)}</code> изменен на "
+                        f"<code>{utils.escape(new_response)}</code>",
                      allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
     def act_link_products_file(c: types.CallbackQuery):
@@ -335,7 +335,7 @@ $product""")
             logger.info(
                 f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET отвязал файл с товарами от "
                 f"лота $YELLOW[{lot}]$RESET.")
-            bot.reply_to(m, f"✅ Файл с товарами успешно отвязан от лота <code>{tg_tools.format_text(lot)}</code>.",
+            bot.reply_to(m, f"✅ Файл с товарами успешно отвязан от лота <code>{utils.escape(lot)}</code>.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
             return
 
@@ -344,16 +344,16 @@ $product""")
 
         if not os.path.exists(f"storage/products/{file_name}"):
             bot.send_message(m.chat.id, f"🔄 Создаю файл для товаров "
-                                        f"<code>storage/products/{tg_tools.format_text(file_name)} ...</code>",
+                                        f"<code>storage/products/{utils.escape(file_name)} ...</code>",
                              parse_mode="HTML")
             exists = 0
             try:
-                with open(f"storage/products/{file_name}", "w", encoding="utf-8") as f:
+                with open(f"storage/products/{file_name}", "w", encoding="utf-8"):
                     pass
             except:
                 logger.debug(traceback.format_exc())
                 bot.reply_to(m, f"❌ Произошла ошибка при создании файла "
-                                f"<code>storage/products/{tg_tools.format_text(file_name)}</code>. Подробнее в файле "
+                                f"<code>storage/products/{utils.escape(file_name)}</code>. Подробнее в файле "
                                 f"<code>logs/log.log</code>.",
                              allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
@@ -364,16 +364,16 @@ $product""")
             logger.info(
                 f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET привязал файл с товарами "
                 f"$YELLOWstorage/products/{file_name}$RESET к лоту $YELLOW[{lot}]$RESET.")
-            bot.reply_to(m, f"✅ Файл с товарами <code>storage/products/{tg_tools.format_text(file_name)}</code> "
-                            f"успешно привязан к лоту <code>{tg_tools.format_text(lot)}</code>.",
+            bot.reply_to(m, f"✅ Файл с товарами <code>storage/products/{utils.escape(file_name)}</code> "
+                            f"успешно привязан к лоту <code>{utils.escape(lot)}</code>.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
         else:
             logger.info(
                 f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET создал и привязал файл с "
                 f"товарами $YELLOWstorage/products/{file_name}$RESET к лоту $YELLOW[{lot}]$RESET.")
 
-            bot.reply_to(m, f"✅ Файл с товарами <code>storage/products/{tg_tools.format_text(file_name)}</code> "
-                            f"успешно <b><u>создан</u></b> и привязан к лоту <code>{tg_tools.format_text(lot)}</code>.",
+            bot.reply_to(m, f"✅ Файл с товарами <code>storage/products/{utils.escape(file_name)}</code> "
+                            f"успешно <b><u>создан</u></b> и привязан к лоту <code>{utils.escape(lot)}</code>.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
     def switch_lot_setting(c: types.CallbackQuery):
@@ -397,7 +397,7 @@ $product""")
         logger.info(
             f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET изменил параметр $CYAN{param}$RESET "
             f"секции $YELLOW[{lot}]$RESET на $YELLOW{value}$RESET.")
-        bot.edit_message_text(tg_tools.generate_lot_info_text(lot, lot_obj),
+        bot.edit_message_text(utils.generate_lot_info_text(lot, lot_obj),
                               c.message.chat.id, c.message.id, parse_mode="HTML",
                               reply_markup=keyboards.edit_lot(cardinal, lot_number, offset))
         bot.answer_callback_query(c.id)
@@ -429,7 +429,7 @@ $product""")
                  Button("👾 Еще 1 тест", callback_data=f"test_auto_delivery:{lot_index}:{offset}"))
 
         bot.send_message(c.message.chat.id, f"✅ Одноразовый ключ для теста авто-выдачи лота "
-                                            f"<code>{tg_tools.format_text(lot_name)}</code> успешно создан. \n\n"
+                                            f"<code>{utils.escape(lot_name)}</code> успешно создан. \n\n"
                                             f"Для теста авто-выдачи введите команду снизу в любой чат FunPay (ЛС).\n\n"
                                             f"<code>!автовыдача {key}</code>", parse_mode="HTML", reply_markup=keyboard)
         bot.answer_callback_query(c.id)
@@ -495,7 +495,7 @@ $product""")
                      Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{ad_lot_index}:{ad_lots_offset}"))
 
             bot.send_message(c.message.chat.id,
-                             f"❌ Лот <code>{tg_tools.format_text(lot.title)}</code> уже есть в конфиге авто-выдачи.",
+                             f"❌ Лот <code>{utils.escape(lot.title)}</code> уже есть в конфиге авто-выдачи.",
                              parse_mode="HTML", reply_markup=keyboard)
             bot.answer_callback_query(c.id)
             return
@@ -514,7 +514,7 @@ $product""")
                     f"$YELLOW[{lot.title}]$RESET в конфиг авто-выдачи.")
 
         bot.send_message(c.message.chat.id,
-                         f"✅ Добавлена новая секция <code>{tg_tools.format_text(lot.title)}</code> в конфиг "
+                         f"✅ Добавлена новая секция <code>{utils.escape(lot.title)}</code> в конфиг "
                          f"авто-выдачи.", parse_mode="HTML", reply_markup=keyboard)
         bot.answer_callback_query(c.id)
 
@@ -541,7 +541,7 @@ $product""")
 <b><i>Товаров в файле:</i></b>  <code>{products_amount}</code>
 
 <b><i>Используется в лотах:</i></b>
-{nl.join(f"<code>{tg_tools.format_text(i)}</code>" for i in delivery_objs)}
+{nl.join(f"<code>{utils.escape(i)}</code>" for i in delivery_objs)}
 
 <i>Обновлено:</i>  <code>{datetime.datetime.now().strftime('%H:%M:%S')}</code>"""
         bot.edit_message_text(text, c.message.chat.id, c.message.id,
@@ -714,45 +714,45 @@ $product""")
             return
 
     # Основное меню настроек авто-выдачи.
-    tg.cbq_handler(open_lots_list, func=lambda c: c.data.startswith(f"{CBT.AD_LOTS_LIST}:"))
-    tg.cbq_handler(open_funpay_lots_list, func=lambda c: c.data.startswith(f"{CBT.FP_LOTS_LIST}:"))
-    tg.cbq_handler(act_add_lot, func=lambda c: c.data.startswith(f"{CBT.ADD_AD_TO_LOT_MANUALLY}:"))
+    tg.cbq_handler(open_lots_list, lambda c: c.data.startswith(f"{CBT.AD_LOTS_LIST}:"))
+    tg.cbq_handler(open_funpay_lots_list, lambda c: c.data.startswith(f"{CBT.FP_LOTS_LIST}:"))
+    tg.cbq_handler(act_add_lot, lambda c: c.data.startswith(f"{CBT.ADD_AD_TO_LOT_MANUALLY}:"))
     tg.msg_handler(add_lot, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_AD_TO_LOT_MANUALLY))
 
-    tg.cbq_handler(open_products_files_list, func=lambda c: c.data.startswith(f"{CBT.PRODUCTS_FILES_LIST}:"))
+    tg.cbq_handler(open_products_files_list, lambda c: c.data.startswith(f"{CBT.PRODUCTS_FILES_LIST}:"))
 
-    tg.cbq_handler(act_create_product_file, func=lambda c: c.data == CBT.CREATE_PRODUCTS_FILE)
+    tg.cbq_handler(act_create_product_file, lambda c: c.data == CBT.CREATE_PRODUCTS_FILE)
     tg.msg_handler(create_products_file, func=lambda m: tg.check_state(m.chat.id, m.from_user.id,
                                                                        CBT.CREATE_PRODUCTS_FILE))
 
     # Меню настройки лотов.
-    tg.cbq_handler(open_edit_lot_cp, func=lambda c: c.data.startswith(f"{CBT.EDIT_AD_LOT}:"))
+    tg.cbq_handler(open_edit_lot_cp, lambda c: c.data.startswith(f"{CBT.EDIT_AD_LOT}:"))
 
-    tg.cbq_handler(act_edit_lot_response, func=lambda c: c.data.startswith(f"{CBT.EDIT_LOT_DELIVERY_TEXT}:"))
+    tg.cbq_handler(act_edit_lot_response, lambda c: c.data.startswith(f"{CBT.EDIT_LOT_DELIVERY_TEXT}:"))
     tg.msg_handler(edit_lot_response,
                    func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.EDIT_LOT_DELIVERY_TEXT))
 
-    tg.cbq_handler(act_link_products_file, func=lambda c: c.data.startswith(f"{CBT.BIND_PRODUCTS_FILE}:"))
+    tg.cbq_handler(act_link_products_file, lambda c: c.data.startswith(f"{CBT.BIND_PRODUCTS_FILE}:"))
     tg.msg_handler(link_products_file, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.BIND_PRODUCTS_FILE))
 
-    tg.cbq_handler(switch_lot_setting, func=lambda c: c.data.startswith("switch_lot:"))
-    tg.cbq_handler(create_lot_delivery_test, func=lambda c: c.data.startswith("test_auto_delivery:"))
-    tg.cbq_handler(del_lot, func=lambda c: c.data.startswith(f"{CBT.DEL_AD_LOT}:"))
+    tg.cbq_handler(switch_lot_setting, lambda c: c.data.startswith("switch_lot:"))
+    tg.cbq_handler(create_lot_delivery_test, lambda c: c.data.startswith("test_auto_delivery:"))
+    tg.cbq_handler(del_lot, lambda c: c.data.startswith(f"{CBT.DEL_AD_LOT}:"))
 
     # Меню добавления лота с FunPay
-    tg.cbq_handler(add_ad_to_lot, func=lambda c: c.data.startswith(f"{CBT.ADD_AD_TO_LOT}:"))
-    tg.cbq_handler(update_funpay_lots_list, func=lambda c: c.data.startswith("update_funpay_lots:"))
+    tg.cbq_handler(add_ad_to_lot, lambda c: c.data.startswith(f"{CBT.ADD_AD_TO_LOT}:"))
+    tg.cbq_handler(update_funpay_lots_list, lambda c: c.data.startswith("update_funpay_lots:"))
 
     # Меню управления файлов с товарами.
-    tg.cbq_handler(open_products_file_action, func=lambda c: c.data.startswith(f"{CBT.EDIT_PRODUCTS_FILE}:"))
+    tg.cbq_handler(open_products_file_action, lambda c: c.data.startswith(f"{CBT.EDIT_PRODUCTS_FILE}:"))
 
-    tg.cbq_handler(act_add_products_to_file, func=lambda c: c.data.startswith(f"{CBT.ADD_PRODUCTS_TO_FILE}:"))
+    tg.cbq_handler(act_add_products_to_file, lambda c: c.data.startswith(f"{CBT.ADD_PRODUCTS_TO_FILE}:"))
     tg.msg_handler(add_products_to_file,
                    func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_PRODUCTS_TO_FILE))
 
-    tg.cbq_handler(send_products_file, func=lambda c: c.data.startswith("download_products_file:"))
-    tg.cbq_handler(ask_del_products_file, func=lambda c: c.data.startswith("del_products_file:"))
-    tg.cbq_handler(del_products_file, func=lambda c: c.data.startswith("confirm_del_products_file:"))
+    tg.cbq_handler(send_products_file, lambda c: c.data.startswith("download_products_file:"))
+    tg.cbq_handler(ask_del_products_file, lambda c: c.data.startswith("del_products_file:"))
+    tg.cbq_handler(del_products_file, lambda c: c.data.startswith("confirm_del_products_file:"))
 
 
-REGISTER_TO_POST_INIT = [init_auto_delivery_cp]
+BIND_TO_PRE_INIT = [init_auto_delivery_cp]

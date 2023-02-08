@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
 
-from telegram import telegram_tools as tg_tools, CBT
+from tg_bot import utils, CBT
 
 import logging
 import random
@@ -19,7 +19,7 @@ import os
 
 logger = logging.getLogger("TGBot")
 
-CLEAR_STATE_BTN = types.InlineKeyboardMarkup().add(Button("❌ Отмена", callback_data="clear_state"))
+CLEAR_STATE_BTN = types.InlineKeyboardMarkup().add(Button("❌ Отмена", callback_data=CBT.CLEAR_USER_STATE))
 
 
 def power_off(instance_id: int, state: int) -> types.InlineKeyboardMarkup:
@@ -242,7 +242,7 @@ def edit_command(cardinal: Cardinal, command_index: int, offset: int) -> types.I
         .add(Button(f"✏️ Редактировать уведомление",
                     callback_data=f"{CBT.EDIT_CMD_NOTIFICATION_TEXT}:{command_index}:{offset}"))\
         .add(Button(f"Уведомление в Telegram "
-                    f"{tg_tools.get_on_off_text(command_obj.get('telegramNotification'), on='🔔', off='🔕')}",
+                    f"{utils.bool_to_text(command_obj.get('telegramNotification'), on='🔔', off='🔕')}",
                     callback_data=f"{CBT.SWITCH_CMD_NOTIFICATION}:{command_index}:{offset}"))\
         .add(Button("🗑️ Удалить команду / сет команд", callback_data=f"{CBT.DEL_CMD}:{command_index}:{offset}"))\
         .row(Button("◀️ Назад", callback_data=f"{CBT.CMD_LIST}:{offset}"),
@@ -369,8 +369,8 @@ def funpay_lots_list(cardinal: Cardinal, offset: int):
         navigation_buttons.append(forward_button)
 
     keyboard.row(*navigation_buttons)\
-        .row(Button("➕ Добавить лот вручную", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{offset}"),
-             Button("🔄 Обновить данные о лотах", callback_data=f"update_funpay_lots:{offset}"))\
+        .row(Button("➕ Ввести вручную", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{offset}"),
+             Button("🔄 Сканировать FunPay", callback_data=f"update_funpay_lots:{offset}"))\
         .add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
@@ -408,17 +408,14 @@ def edit_lot(cardinal: Cardinal, lot_number: int, offset: int) -> types.InlineKe
                             callback_data=f"{CBT.BIND_PRODUCTS_FILE}:{lot_number}:{offset}"),
                      Button("➕ Добавить товары",
                             callback_data=f"{CBT.ADD_PRODUCTS_TO_FILE}:{file_number}:{lot_number}:{offset}:1"))
-
-    keyboard.add(Button("Выключить авто-выдачу" if lot_obj.get("disable") in [None, "0"] else "Включить авто-выдачу",
-                        callback_data=f"switch_lot:disable:{lot_number}:{offset}"))\
-        .add(Button("Выключить авто-восстановление" if lot_obj.get("disableAutoRestore") in [None, "0"] else
-                    "Включить авто-восстановление",
-                    callback_data=f"switch_lot:disableAutoRestore:{lot_number}:{offset}"))\
-        .add(Button("Выключить авто-деактивацию" if lot_obj.get("disableAutoDisable") in [None, "0"] else
-                    "Включить авто-деактивацию",
-                    callback_data=f"switch_lot:disableAutoDisable:{lot_number}:{offset}"))\
-        .add(Button("👾 Тест авто-выдачи", callback_data=f"test_auto_delivery:{lot_number}:{offset}"))\
-        .add(Button("🗑️ Удалить лот", callback_data=f"{CBT.DEL_AD_LOT}:{lot_number}:{offset}"))\
+    keyboard.row(Button(f"Выдача {utils.bool_to_text(lot_obj.get('disable'), '🔴', '🟢')}",
+                        callback_data=f"switch_lot:disable:{lot_number}:{offset}"),
+                 Button(f"Восст. {utils.bool_to_text(lot_obj.get('disableAutoRestore'), '🔴', '🟢')}",
+                        callback_data=f"switch_lot:disableAutoRestore:{lot_number}:{offset}"),
+                 Button(f"Деакт. {utils.bool_to_text(lot_obj.get('disableAutoDisable'), '🔴', '🟢')}",
+                        callback_data=f"switch_lot:disableAutoDisable:{lot_number}:{offset}"))\
+        .row(Button("👾 Тест авто-выдачи", callback_data=f"test_auto_delivery:{lot_number}:{offset}"),
+             Button("🗑️ Удалить лот", callback_data=f"{CBT.DEL_AD_LOT}:{lot_number}:{offset}"))\
         .row(Button("◀️ Назад", callback_data=f"{CBT.AD_LOTS_LIST}:{offset}"),
              Button("🔄 Обновить", callback_data=f"{CBT.EDIT_AD_LOT}:{lot_number}:{offset}"))
     return keyboard
@@ -438,4 +435,44 @@ def configs() -> types.InlineKeyboardMarkup:
         .add(Button("⤴️ Выгрузить конфиг авто-ответа", callback_data="upload_auto_response_config")) \
         .add(Button("⤴️ Выгрузить конфиг авто-выдачи", callback_data="upload_auto_delivery_config")) \
         .add(Button("◀️ Назад", callback_data=CBT.MAIN))
+    return keyboard
+
+
+# Прочее
+def new_order(order_id: str, confirmation: bool = False, no_refund: bool = False) -> types.InlineKeyboardMarkup:
+    """
+    Генерирует клавиатуру для сообщения о новом оредере.
+
+    :param order_id: ID заказа (без #).
+
+    :param confirmation: заменить ли кнопку "Вернуть деньги" на подтверждение "Да" / "Нет"?
+
+    :param no_refund: убрать ли кнопки, связанные с возвратом денег?
+
+    :return: экземпляр кнопки (клавиатуры).
+    """
+    keyboard = types.InlineKeyboardMarkup()
+    if not no_refund:
+        if confirmation:
+            keyboard.row(Button(text="✅ Да", callback_data=f"{CBT.REFUND_CONFIRMED}:{order_id}"),
+                         Button(text="❌ Нет", callback_data=f"{CBT.REFUND_CANCELLED}:{order_id}"))
+        else:
+            keyboard.add(Button(text="💸 Вернуть деньги", callback_data=f"{CBT.REQUEST_REFUND}:{order_id}"))
+
+    keyboard.add(Button(text="🌐 Открыть страницу заказа", url=f"https://funpay.com/orders/{order_id}/"))
+    return keyboard
+
+
+def reply(node_id: int, username: str) -> types.InlineKeyboardMarkup:
+    """
+    Генерирует кнопку для отправки сообщения из Telegram в ЛС пользователю FunPay.
+
+    :param node_id: ID переписки, в которую нужно отправить сообщение.
+
+    :param username: никнейм пользователя, с которым ведется переписка.
+
+    :return: экземпляр кнопки (клавиатуры).
+    """
+    keyboard = types.InlineKeyboardMarkup()\
+        .add(Button(text="📨 Ответить", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
     return keyboard

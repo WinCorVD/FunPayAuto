@@ -70,7 +70,7 @@ def save_chat_ids(chat_ids: list[int]) -> None:
         f.write(json.dumps(chat_ids))
 
 
-def format_text(text: str) -> str:
+def escape(text: str) -> str:
     """
     Форматирует текст под HTML разметку.
 
@@ -87,7 +87,7 @@ def format_text(text: str) -> str:
     return text
 
 
-def get_on_off_text(value: bool | int | str | None, on: str = "🟢", off: str = "🔴"):
+def bool_to_text(value: bool | int | str | None, on: str = "🟢", off: str = "🔴"):
     if value is not None and int(value):
         return on
     return off
@@ -125,20 +125,14 @@ def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) ->
     else:
         file_path = f"<code>storage/products/{lot_obj.get('productsFileName')}</code>"
 
-    message = f"""<b>[{format_text(lot_name)}]</b>
+    message = f"""<b>[{escape(lot_name)}]</b>\n
+<b><i>Текст выдачи:</i></b> <code>{escape(lot_obj["response"])}</code>\n
+<b><i>Файл с товарами: </i></b>{file_path}\n
+<b><i>Авто-выдача отключена: </i></b> {bool_to_text(lot_obj.get("disable"), "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}
 
-<b><i>Ответ:</i></b> <code>{format_text(lot_obj["response"])}</code>
-
-<b><i>Файл с товарами: </i></b>{file_path}
-
-<b><i>Авто-выдача отключена: </i></b> {"<b><u>Нет.</u></b>" if lot_obj.get("disable") in [None, "0"]
-                                       else "<b><u>Да.</u></b>"}
-
-<b><i>Авто-восстановление отключено: </i></b> {"<b><u>Нет.</u></b>" if lot_obj.get("disableAutoRestore") in [None, "0"]
-                                               else "<b><u>Да.</u></b>"}
-
-<b><i>Авто-деактивация отключена: </i></b> {"<b><u>Нет.</u></b>" if lot_obj.get("disableAutoDisable") in [None, "0"]
-                                            else "<b><u>Да.</u></b>"}
-                                            
+<b><i>Авто-восстановление отключено: </i></b> {bool_to_text(lot_obj.get("disableAutoRestore"), 
+                                                            "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}\n
+<b><i>Авто-деактивация отключена: </i></b> {bool_to_text(lot_obj.get("disableAutoDisable"), 
+                                                            "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}\n
 <i>Обновлено:</i>  <code>{datetime.datetime.now().strftime('%H:%M:%S')}</code>"""
     return message

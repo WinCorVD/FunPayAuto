@@ -8,11 +8,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from telegram import CBT
+from tg_bot import keyboards, CBT
 from telebot import types
-from telegram import keyboards
 import logging
-
 import os
 
 
@@ -72,8 +70,8 @@ def init_config_loader_cp(cardinal: Cardinal, *args):
                     f"конфиг $YELLOW{path}$RESET.")
         bot.answer_callback_query(c.id)
 
-    tg.cbq_handler(open_config_loader, func=lambda c: c.data == "config_loader")
-    tg.cbq_handler(send_config, func=lambda c: c.data.startswith(f"{CBT.DOWNLOAD_CFG}:"))
+    tg.cbq_handler(open_config_loader, lambda c: c.data == "config_loader")
+    tg.cbq_handler(send_config, lambda c: c.data.startswith(f"{CBT.DOWNLOAD_CFG}:"))
 
 
-REGISTER_TO_POST_INIT = [init_config_loader_cp]
+BIND_TO_PRE_INIT = [init_config_loader_cp]

@@ -7,7 +7,6 @@ if TYPE_CHECKING:
 from datetime import datetime
 import Utils.exceptions
 import itertools
-import requests
 import psutil
 import json
 import sys
@@ -127,10 +126,8 @@ def create_greetings(account: FunPayAPI.account.Account):
         greetings = "Доброе утро"
     elif current_time.hour < 17:
         greetings = "Добрый день"
-    elif current_time.hour < 24:
-        greetings = "Добрый вечер"
     else:
-        greetings = "Доброе утро"
+        greetings = "Добрый вечер"
 
     currency = f" {account.currency}" if account.currency is not None else ""
 
@@ -152,26 +149,27 @@ def create_greetings(account: FunPayAPI.account.Account):
 
 def time_to_str(time_: int):
     """
-    Конвертирует число в строку формата "Nч Nмин Nсек"
+    Конвертирует число в строку формата "Хд Хч Хмин Хсек"
 
     :param time_: число для конвертации.
     :return: строку-время.
     """
-    m = time_ // 60
-    h = m // 60
-    time_ -= m * 60
-    m -= h * 60
-    s = time_
+    days = time_ // 86400
+    hours = (time_ - days * 86400) // 3600
+    minutes = (time_ - days * 86400 - hours * 3600) // 60
+    seconds = time_ - days * 86400 - hours * 3600 - minutes * 60
 
-    if not any([h, m, s]):
+    if not any([days, hours, minutes, seconds]):
         return "0 сек"
     time_str = ""
-    if h:
-        time_str += f"{h}ч"
-    if m:
-        time_str += f" {m}мин"
-    if s:
-        time_str += f" {s}сек"
+    if days:
+        time_str += f"{days}д"
+    if hours:
+        time_str += f" {hours}ч"
+    if minutes:
+        time_str += f" {minutes}мин"
+    if seconds:
+        time_str += f" {seconds}сек"
     return time_str.strip()
 
 
@@ -180,21 +178,14 @@ def get_month_name(month_number: int) -> str:
     Возвращает название месяца в родительном падеже.
 
     :param month_number: номер месяца.
+
     :return: название месяца в родительном падеже.
     """
     months = [
-        "Января",
-        "Февраля",
-        "Марта",
-        "Апреля",
-        "Мая",
-        "Июня",
-        "Июля",
-        "Августа",
-        "Сентября",
-        "Октября",
-        "Ноября",
-        "Декабря"
+        "Января", "Февраля", "Марта",
+        "Апреля", "Мая", "Июня",
+        "Июля", "Августа", "Сентября",
+        "Октября", "Ноября", "Декабря"
     ]
     if month_number > len(months):
         return months[0]
@@ -204,7 +195,9 @@ def get_month_name(month_number: int) -> str:
 def get_product(path: str) -> list[str | int] | None:
     """
     Берет 1 единицу товара из файла.
+
     :param path: путь до файла с товарами.
+
     :return: [Товар, оставшееся кол-во товара]
     """
     with open(path, "r", encoding="utf-8") as f:
@@ -230,8 +223,11 @@ def get_product(path: str) -> list[str | int] | None:
 def add_products(path: str, products: list[str]) -> None:
     """
     Добавляет товары в файл с товарами.
+
     :param path: путь до файла с товарами.
+
     :param products: товары.
+
     :return:
     """
     with open(path, "r", encoding="utf-8") as f:
@@ -249,7 +245,9 @@ def format_msg_text(text: str, msg: FunPayAPI.types.Message) -> str:
     Форматирует текст, подставляя значения переменных, доступных для MessageEvent.
 
     :param text: текст для форматирования.
+
     :param msg: экземпляр MessageEvent.
+
     :return: форматированый текст.
     """
     date_obj = datetime.now()
@@ -279,8 +277,11 @@ def format_msg_text(text: str, msg: FunPayAPI.types.Message) -> str:
 def format_order_text(text: str, order: FunPayAPI.types.Order) -> str:
     """
     Форматирует текст, подставляя значения переменных, доступных для Order.
+
     :param text: текст для форматирования.
+
     :param order: экземпляр Order.
+
     :return: форматированый текст.
     """
     date_obj = datetime.now()
@@ -300,6 +301,7 @@ def format_order_text(text: str, order: FunPayAPI.types.Order) -> str:
         "$full_time": time_full,
         "$username": order.buyer_username,
         "$order_name": order.title,
+        "$order_id": order.id
     }
 
     for var in variables:
@@ -319,7 +321,7 @@ def restart_program():
             os.close(handler.fd)
         for handler in process.connections():
             os.close(handler.fd)
-    except Exception as e:
+    except:
         pass
 
 
@@ -330,5 +332,5 @@ def shut_down():
     try:
         process = psutil.Process()
         process.terminate()
-    except Exception as e:
-        print(e)
+    except:
+        pass
