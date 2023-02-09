@@ -98,6 +98,7 @@ class Cardinal:
         self.last_telegram_lots_update = datetime.datetime.now()
         self.current_lots: list[FunPayAPI.types.Lot] = []  # Для хэндлеров (авто-восстановление, авто-деактивация)
         self.current_lots_last_tag: str | None = None
+        self.last_state_change_tag: str | None = None
         self.block_list: list[str] = []
 
         # Хэндлеры

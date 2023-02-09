@@ -401,7 +401,7 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
     if not any([cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"),
                 cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable")]):
         return
-    if cardinal.current_lots_last_tag == event.tag:
+    if cardinal.current_lots_last_tag == event.tag or cardinal.last_state_change_tag == event.tag:
         return
 
     lots_ids = [i.id for i in cardinal.current_lots]
@@ -449,6 +449,8 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
             update_lot_state(cardinal, lot, current_task)
             time.sleep(0.5)
 
+    cardinal.last_state_change_tag = event.tag
+
 
 def update_lots_state_handler(cardinal: Cardinal, event: NewOrderEvent, *args):
     Thread(target=update_lots_states, args=(cardinal, event), daemon=True).start()
@@ -489,8 +491,9 @@ BIND_TO_POST_LOTS_RAISE = [send_categories_raised_notification_handler]
 
 BIND_TO_ORDERS_LIST_CHANGED = [update_current_lots_handler]
 
-BIND_TO_NEW_ORDER = [log_new_order_handler, send_new_order_notification_handler, deliver_product_handler]
+BIND_TO_NEW_ORDER = [log_new_order_handler, send_new_order_notification_handler, deliver_product_handler,
+                     update_lots_state_handler]
 
-BIND_TO_POST_DELIVERY = [send_delivery_notification_handler, update_lots_state_handler]
+BIND_TO_POST_DELIVERY = [send_delivery_notification_handler]
 
 BIND_TO_POST_START = [send_bot_started_notification_handler]
