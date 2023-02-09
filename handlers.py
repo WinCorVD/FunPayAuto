@@ -401,7 +401,7 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
     if not any([cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"),
                 cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable")]):
         return
-    if cardinal.current_lots_last_tag == event.tag or cardinal.last_state_change_tag == event.tag:
+    if cardinal.current_lots_last_tag != event.tag or cardinal.last_state_change_tag == event.tag:
         return
 
     lots_ids = [i.id for i in cardinal.current_lots]
