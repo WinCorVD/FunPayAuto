@@ -406,12 +406,11 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
 
     lots_ids = [i.id for i in cardinal.current_lots]
 
-    # -1 - деактивировать
-    # 0 - ничего не делать
-    # 1 - восстановить
-    current_task = 0
-
     for lot in cardinal.lots:
+        # -1 - деактивировать
+        # 0 - ничего не делать
+        # 1 - восстановить
+        current_task = 0
         config_obj = get_lot_config_by_name(cardinal, lot.title)
 
         # Если лот уже деактивирован
