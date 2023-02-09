@@ -18,8 +18,8 @@ import logging
 import traceback
 from threading import Thread
 
-import telebot.types
-from tg_bot import utils, keyboards, CBT
+import re
+from tg_bot import utils, keyboards
 
 
 logger = logging.getLogger("FPC.handlers")
@@ -52,6 +52,9 @@ ORDER_HTML_TEMPLATE = """<a href="https://funpay.com/orders/DELIVERY_TEST/" clas
         <div class="tc-status text-primary">Оплачен</div>
         <div class="tc-price text-nowrap tc-seller-sum">999999.0<span class="unit">₽</span></div>
 </a>"""
+
+
+AMOUNT_EXPRESSION = re.compile(r'[\d]+ шт\.')
 
 
 # Новое сообщение (REGISTER_TO_NEW_MESSAGE)
@@ -203,7 +206,7 @@ def check_lot_products_count(config_obj: configparser.SectionProxy) -> int:
     if file_name is None:
         return 1
 
-    return cardinal_tools.get_products_count(f"storage/products/{file_name}")
+    return cardinal_tools.count_products(f"storage/products/{file_name}")
 
 
 def update_current_lots_handler(cardinal: Cardinal, event: OrdersListChangedEvent):
@@ -276,8 +279,16 @@ def deliver_product(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: conf
 
     # Получаем товар.
     file_name = delivery_obj.get("productsFileName")
-    product = cardinal_tools.get_product(f"storage/products/{file_name}")
-    product_text = product[0].replace("\\n", "\n")
+    products = []
+    if cardinal.MAIN_CFG["FunPay"].getboolean("multiDelivery") and not delivery_obj.getboolean("disableMultiDelivery"):
+        result = AMOUNT_EXPRESSION.findall(event.order.title)
+        if result:
+            amount = int(result[0].split(" ")[0])
+            products = cardinal_tools.get_product(f"storage/products/{file_name}", amount)
+    if not products:
+        products = cardinal_tools.get_product(f"storage/products/{file_name}")
+
+    product_text = "\n".join(products[0])
     response_text = response_text.replace("$product", product_text)
 
     # Отправляем товар.

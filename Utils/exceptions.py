@@ -74,6 +74,27 @@ class NoProductsError(Exception):
         return f"В файле {self.products_file_path} отсутствуют товары."
 
 
+class NotEnoughProductsError(Exception):
+    """
+    Исключение, которое райзится, если запрошено больше товаров, чем есть в файле с товарами.
+    """
+    def __init__(self, products_file_path: str, products_amount: int, request_amount: int):
+        """
+        :param products_file_path: путь до файла с товарами.
+
+        :param products_amount: кол-во товаров в файле.
+
+        :param request_amount: кол-во запрошенного товара.
+        """
+        self.products_file_path = products_file_path
+        self.products_amount = products_amount
+        self.request_amount = request_amount
+
+    def __str__(self):
+        return f"В файле {self.products_file_path} недостаточно товаров. Запрошено {self.request_amount}, " \
+               f"в наличии {self.products_amount}."
+
+
 class NoProductVarError(Exception):
     """
     Исключение, которое райзится, если в конфиге автовыдачи указан файл с товарами, но в параметре response нет

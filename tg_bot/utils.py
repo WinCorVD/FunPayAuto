@@ -7,6 +7,7 @@ import datetime
 import os.path
 import json
 
+import Utils.cardinal_tools
 
 ABOUT_TEXT = """FunPay Cardinal - это продвинутый бот для автоматизации рутинных действий.
 Разработчик:
@@ -122,17 +123,26 @@ def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) ->
     """
     if lot_obj.get("productsFileName") is None:
         file_path = "<b><u>не привязан.</u></b>"
+        products_amount = "<code>∞</code>"
     else:
         file_path = f"<code>storage/products/{lot_obj.get('productsFileName')}</code>"
+        if not os.path.exists(f"storage/products/{lot_obj.get('productsFileName')}"):
+            with open(f"storage/products/{lot_obj.get('productsFileName')}", "w", encoding="utf-8"):
+                pass
+        products_amount = Utils.cardinal_tools.count_products(f"storage/products/{lot_obj.get('productsFileName')}")
+        products_amount = f"<code>{products_amount}</code>"
 
     message = f"""<b>[{escape(lot_name)}]</b>\n
 <b><i>Текст выдачи:</i></b> <code>{escape(lot_obj["response"])}</code>\n
+<b><i>Кол-во товаров: </i></b> {products_amount}\n
 <b><i>Файл с товарами: </i></b>{file_path}\n
-<b><i>Авто-выдача отключена: </i></b> {bool_to_text(lot_obj.get("disable"), "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}
+<b><i>Выдача принуд. отключена: </i></b> {bool_to_text(lot_obj.get("disable"), "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}
 
-<b><i>Авто-восстановление отключено: </i></b> {bool_to_text(lot_obj.get("disableAutoRestore"), 
+<b><i>Мульти-выдача принуд. отключена: </i></b> {bool_to_text(lot_obj.get("disableMultiDelivery"), "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}
+
+<b><i>Восстановление принуд. отключено: </i></b> {bool_to_text(lot_obj.get("disableAutoRestore"), 
                                                             "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}\n
-<b><i>Авто-деактивация отключена: </i></b> {bool_to_text(lot_obj.get("disableAutoDisable"), 
+<b><i>Деактивация принуд. отключена: </i></b> {bool_to_text(lot_obj.get("disableAutoDisable"), 
                                                             "<b><u>Да.</u></b>", "<b><u>Нет.</u></b>")}\n
 <i>Обновлено:</i>  <code>{datetime.datetime.now().strftime('%H:%M:%S')}</code>"""
     return message

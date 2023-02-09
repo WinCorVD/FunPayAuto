@@ -97,7 +97,7 @@ def upload_products_file(cardinal: Cardinal, msg: types.Message):
         return
 
     try:
-        products_count = cardinal_tools.get_products_count("storage/cache/temp_products_file.txt")
+        products_count = cardinal_tools.count_products("storage/cache/temp_products_file.txt")
         file_name = msg.document.file_name
         with open(f"storage/products/{file_name}", "w", encoding="utf-8") as f:
             f.write(text)

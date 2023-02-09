@@ -96,9 +96,11 @@ def main_settings(cardinal: Cardinal) -> types.InlineKeyboardMarkup:
                     callback_data=f"{CBT.SWITCH}:FunPay:autoResponse"))\
         .row(Button(f"Авто-выдача {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoDelivery']) else '🔴'}",
                     callback_data=f"{CBT.SWITCH}:FunPay:autoDelivery"),
-             Button(f"Активация лотов {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoRestore']) else '🔴'}",
-                    callback_data=f"{CBT.SWITCH}:FunPay:autoRestore"))\
-        .add(Button(f"Деактивация лотов {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoDisable']) else '🔴'}",
+             Button(f"Мульти-выдача {utils.bool_to_text(cardinal.MAIN_CFG['FunPay'].getboolean('multiDelivery'))}",
+                    callback_data=f"{CBT.SWITCH}:FunPay:multiDelivery"))\
+        .row(Button(f"Активация лотов {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoRestore']) else '🔴'}",
+                    callback_data=f"{CBT.SWITCH}:FunPay:autoRestore"),
+             Button(f"Деактивация лотов {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoDisable']) else '🔴'}",
                     callback_data=f"{CBT.SWITCH}:FunPay:autoDisable"))\
         .add(Button("◀️ Назад", callback_data=CBT.MAIN))
     return keyboard
@@ -410,7 +412,9 @@ def edit_lot(cardinal: Cardinal, lot_number: int, offset: int) -> types.InlineKe
                             callback_data=f"{CBT.ADD_PRODUCTS_TO_FILE}:{file_number}:{lot_number}:{offset}:1"))
     keyboard.row(Button(f"Выдача {utils.bool_to_text(lot_obj.get('disable'), '🔴', '🟢')}",
                         callback_data=f"switch_lot:disable:{lot_number}:{offset}"),
-                 Button(f"Восст. {utils.bool_to_text(lot_obj.get('disableAutoRestore'), '🔴', '🟢')}",
+                 Button(f"Мульти-выдача {utils.bool_to_text(lot_obj.get('disableMultiDelivery'), '🔴', '🟢')}",
+                        callback_data=f"switch_lot:disableMultiDelivery:{lot_number}:{offset}"))\
+            .row(Button(f"Восст. {utils.bool_to_text(lot_obj.get('disableAutoRestore'), '🔴', '🟢')}",
                         callback_data=f"switch_lot:disableAutoRestore:{lot_number}:{offset}"),
                  Button(f"Деакт. {utils.bool_to_text(lot_obj.get('disableAutoDisable'), '🔴', '🟢')}",
                         callback_data=f"switch_lot:disableAutoDisable:{lot_number}:{offset}"))\

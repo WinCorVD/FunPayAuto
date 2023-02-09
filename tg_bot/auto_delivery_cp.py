@@ -531,7 +531,7 @@ $product""")
             return
 
         file_name = files[file_index]
-        products_amount = cardinal_tools.get_products_count(f"storage/products/{file_name}")
+        products_amount = cardinal_tools.count_products(f"storage/products/{file_name}")
         nl = "\n"
         delivery_objs = [i for i in cardinal.AD_CFG.sections() if
                          cardinal.AD_CFG[i].get("productsFileName") == file_name]

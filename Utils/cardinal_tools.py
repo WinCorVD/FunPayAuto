@@ -13,10 +13,12 @@ import sys
 import os
 
 
-def get_products_count(products_file_path: str) -> int:
+def count_products(products_file_path: str) -> int:
     """
     Считает кол-во товара в указанном файле.
+
     :param products_file_path: путь до файла с товарами.
+
     :return: кол-во товара в указанном файле.
     """
     if not os.path.exists(products_file_path):
@@ -34,8 +36,10 @@ def cache_categories(category_list: list[FunPayAPI.types.Category], cached_categ
     при запуске бота не отправлять запросы на получение game_id каждой категории.
 
     :param category_list: список категорий, которые необходимо кэшировать.
+
     :param cached_categories: список уже кэшированных категорий. Нужен, чтобы не перезаписывать старые, а добавлять к
     ним новые категории.
+
     :return: None
     """
     result = {}
@@ -192,13 +196,15 @@ def get_month_name(month_number: int) -> str:
     return months[month_number-1]
 
 
-def get_product(path: str) -> list[str | int] | None:
+def get_product(path: str, amount: int = 1) -> list[list[str] | int] | None:
     """
-    Берет 1 единицу товара из файла.
+    Берет из товарного файла товар/-ы, удаляет их из товарного файла.
 
     :param path: путь до файла с товарами.
 
-    :return: [Товар, оставшееся кол-во товара]
+    :param amount: кол-во товара.
+
+    :return: [[Товар/-ы], оставшееся кол-во товара]
     """
     with open(path, "r", encoding="utf-8") as f:
         products = f.read()
@@ -208,16 +214,20 @@ def get_product(path: str) -> list[str | int] | None:
     # Убираем пустые элементы
     products = list(itertools.filterfalse(lambda el: not el, products))
 
-    if not len(products):
+    if not products:
         raise Utils.exceptions.NoProductsError(path)
 
-    product = products.pop(0)
-    amount = len(products)
+    elif len(products) < amount:
+        raise Utils.exceptions.NotEnoughProductsError(path, len(products), amount)
+
+    got_products = products[:amount]
+    save_products = products[amount:]
+    amount = len(save_products)
 
     with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(products))
+        f.write("\n".join(save_products))
 
-    return [product, amount]
+    return [got_products, amount]
 
 
 def add_products(path: str, products: list[str]) -> None:
