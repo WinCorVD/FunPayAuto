@@ -288,7 +288,7 @@ def deliver_product(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: conf
     if not products:
         products = cardinal_tools.get_product(f"storage/products/{file_name}")
 
-    product_text = "\n".join(products[0])
+    product_text = "\n".join(products[0]).replace("\\n", "\n")
     response_text = response_text.replace("$product", product_text)
 
     # Отправляем товар.
