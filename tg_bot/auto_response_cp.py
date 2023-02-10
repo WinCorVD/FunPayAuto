@@ -75,7 +75,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         Добавляет новую команду в конфиг.
         """
         tg.clear_user_state(m.chat.id, m.from_user.id, True)
-        raw_command = m.text.strip()
+        raw_command = m.text.strip().lower()
         commands = [i.strip() for i in raw_command.split("|") if i.strip()]
         applied_commands = []
         error_keyboard = types.InlineKeyboardMarkup()\
