@@ -274,7 +274,7 @@ def deliver_product(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: conf
         new_msg_obj = Message(response_text, node_id, None)
         result = cardinal.send_message(new_msg_obj)
         if not result:
-            logger.error(f"Не удалось отправить товар для ордера $YELLOW{event.order}$RESET. ")
+            logger.error(f"Не удалось отправить товар для ордера $YELLOW{event.order.id}$RESET. ")
         return result, response_text, -1
 
     # Получаем товар.
@@ -298,7 +298,7 @@ def deliver_product(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: conf
     # Если произошла какая-либо ошибка при отправлении товара, возвращаем товар обратно в файл с товарами.
     if not result:
         cardinal_tools.add_products(f"storage/products/{file_name}", [product_text])
-        logger.error(f"Не удалось отправить товар для ордера $YELLOW{event.order}$RESET. ")
+        logger.error(f"Не удалось отправить товар для ордера $YELLOW{event.order.id}$RESET. ")
     return result, response_text, -1
 
 
