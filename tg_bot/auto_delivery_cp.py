@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from tg_bot import utils, keyboards, CBT
+from tg_bot import utils, keyboards, CBT, MENU_CFG
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
 
@@ -148,12 +148,12 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
 $product""")
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
-        lot_number = len(cardinal.AD_CFG.sections()) - 1
-        ad_lot_offset = lot_number - 4 if lot_number - 4 > 0 else 0
+        lot_index = len(cardinal.AD_CFG.sections()) - 1
+        ad_lot_offset = utils.get_offset(lot_index, MENU_CFG.AD_BTNS_COUNT)
         keyboard = types.InlineKeyboardMarkup() \
             .row(Button("◀️ Назад", callback_data=f"{CBT.FP_LOTS_LIST}:{fp_lots_offset}"),
                  Button("➕ Добавить еще", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{fp_lots_offset}"),
-                 Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{lot_number}:{ad_lot_offset}"))
+                 Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{lot_index}:{ad_lot_offset}"))
 
         logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
                     f"$YELLOW[{lot}]$RESET в конфиг авто-выдачи.")
@@ -505,7 +505,7 @@ $product""")
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
         ad_lot_index = len(cardinal.AD_CFG.sections()) - 1
-        ad_lots_offset = ad_lot_index - 4 if ad_lot_index - 4 > 0 else 0
+        ad_lots_offset = utils.get_offset(ad_lot_index, MENU_CFG.AD_BTNS_COUNT)
         keyboard = types.InlineKeyboardMarkup() \
             .row(Button("◀️ Назад", callback_data=f"{CBT.FP_LOTS_LIST}:{fp_lots_offset}"),
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{ad_lot_index}:{ad_lots_offset}"))

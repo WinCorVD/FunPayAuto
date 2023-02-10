@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
 
-from tg_bot import utils, CBT
+from tg_bot import utils, CBT, MENU_CFG
 
 import logging
 import random
@@ -199,10 +199,10 @@ def commands_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()
-    commands = cardinal.RAW_AR_CFG.sections()[offset: offset + 5]
+    commands = cardinal.RAW_AR_CFG.sections()[offset: offset + MENU_CFG.AR_BTNS_COUNT]
     if not commands and offset != 0:
         offset = 0
-        commands = cardinal.RAW_AR_CFG.sections()[offset: offset + 5]
+        commands = cardinal.RAW_AR_CFG.sections()[offset: offset + MENU_CFG.AR_BTNS_COUNT]
 
     for index, cmd in enumerate(commands):
         #  CBT.EDIT_CMD:номер команды:оффсет (для кнопки назад)
@@ -210,7 +210,7 @@ def commands_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup
 
     navigation_buttons = []
     if offset > 0:
-        back_offset = offset-5 if offset > 5 else 0
+        back_offset = offset-MENU_CFG.AR_BTNS_COUNT if offset > MENU_CFG.AR_BTNS_COUNT else 0
         back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.CMD_LIST}:{back_offset}")
         navigation_buttons.append(back_button)
     if offset + len(commands) < len(cardinal.RAW_AR_CFG.sections()):
@@ -261,7 +261,7 @@ def products_files_list(offset: int) -> types.InlineKeyboardMarkup:
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()
-    files = os.listdir("storage/products")[offset:offset + 5]
+    files = os.listdir("storage/products")[offset:offset + MENU_CFG.PF_BTNS_COUNT]
     if not files and offset != 0:
         offset = 0
         files = os.listdir("storage/products")[offset:offset + 5]
@@ -271,7 +271,7 @@ def products_files_list(offset: int) -> types.InlineKeyboardMarkup:
 
     navigation_buttons = []
     if offset > 0:
-        back_offset = offset-5 if offset > 5 else 0
+        back_offset = offset-MENU_CFG.PF_BTNS_COUNT if offset > MENU_CFG.PF_BTNS_COUNT else 0
         back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.PRODUCTS_FILES_LIST}:{back_offset}")
         navigation_buttons.append(back_button)
     if offset + len(files) < len(os.listdir("storage/products")):
@@ -323,17 +323,17 @@ def lots_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup:
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()
-    lots = cardinal.AD_CFG.sections()[offset: offset + 5]
+    lots = cardinal.AD_CFG.sections()[offset: offset + MENU_CFG.AD_BTNS_COUNT]
     if not lots and offset != 0:
         offset = 0
-        lots = cardinal.AD_CFG.sections()[offset: offset + 5]
+        lots = cardinal.AD_CFG.sections()[offset: offset + MENU_CFG.AD_BTNS_COUNT]
 
     for index, lot in enumerate(lots):
         keyboard.add(Button(lot, callback_data=f"{CBT.EDIT_AD_LOT}:{offset + index}:{offset}"))
 
     navigation_buttons = []
     if offset > 0:
-        back_offset = offset - 5 if offset > 5 else 0
+        back_offset = offset - MENU_CFG.AD_BTNS_COUNT if offset > MENU_CFG.AD_BTNS_COUNT else 0
         back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.AD_LOTS_LIST}:{back_offset}")
         navigation_buttons.append(back_button)
     if offset + len(lots) < len(cardinal.AD_CFG.sections()):
@@ -352,17 +352,17 @@ def funpay_lots_list(cardinal: Cardinal, offset: int):
     Создает клавиатуру со списком лотов с FunPay (funpay_lots:<offset>).
     """
     keyboard = types.InlineKeyboardMarkup()
-    lots = cardinal.telegram_lots[offset: offset + 5]
+    lots = cardinal.telegram_lots[offset: offset + MENU_CFG.FP_LOTS_BTNS_COUNT]
     if not lots and offset != 0:
         offset = 0
-        lots = cardinal.telegram_lots[offset: offset + 5]
+        lots = cardinal.telegram_lots[offset: offset + MENU_CFG.FP_LOTS_BTNS_COUNT]
 
     for index, lot in enumerate(lots):
         keyboard.add(Button(lot.title, callback_data=f"{CBT.ADD_AD_TO_LOT}:{offset + index}:{offset}"))
 
     navigation_buttons = []
     if offset > 0:
-        back_offset = offset - 5 if offset > 5 else 0
+        back_offset = offset - MENU_CFG.FP_LOTS_BTNS_COUNT if offset > MENU_CFG.FP_LOTS_BTNS_COUNT else 0
         back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.FP_LOTS_LIST}:{back_offset}")
         navigation_buttons.append(back_button)
     if offset + len(lots) < len(cardinal.telegram_lots):

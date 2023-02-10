@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from tg_bot import utils, keyboards, CBT
+from tg_bot import utils, keyboards, CBT, MENU_CFG
 
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
@@ -105,9 +105,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
 
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
 
-        command_index = len(cardinal.RAW_AR_CFG.sections())-1
-        offset = command_index - 4 if command_index - 4 > 0 else 0
-
+        command_index = len(cardinal.RAW_AR_CFG.sections()) - 1
+        offset = utils.get_offset(command_index, MENU_CFG.AR_BTNS_COUNT)
         keyboard = types.InlineKeyboardMarkup()\
             .row(Button("◀️ Назад", callback_data=f"{CBT.CATEGORY}:autoResponse"),
                  Button("➕ Добавить еще", callback_data=CBT.ADD_CMD),

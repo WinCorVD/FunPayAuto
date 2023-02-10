@@ -111,6 +111,19 @@ def generate_help_text(commands_json: dict) -> str:
     return text.strip()
 
 
+def get_offset(element_index: int, max_elements_on_page: int) -> int:
+    """
+    Возвращает смещение списка элементов таким образом, чтобы элемент с индексом element_index оказался в конце списка.
+    """
+    elements_amount = element_index + 1
+    elements_on_page = elements_amount % max_elements_on_page
+    elements_on_page = elements_on_page if elements_on_page else max_elements_on_page
+    if not elements_amount - elements_on_page:  # если это первая группа команд:
+        return 0
+    else:
+        return element_index - elements_on_page + 1
+
+
 def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) -> str:
     """
     Генерирует текст с информацией о лоте.
