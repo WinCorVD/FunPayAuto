@@ -42,7 +42,22 @@ def check_proxy(proxy: dict):
     return True
 
 
-class Cardinal:
+def get_cardinal() -> None | Cardinal:
+    """
+    Возвращает существующий экземпляр кардинала (или None, если такового нет).
+    """
+    if not hasattr(Cardinal, "instance"):
+        return None
+    return Cardinal.instance
+
+
+class Cardinal(object):
+    def __new__(cls, *args, **kwargs):
+        # Singleton
+        if not hasattr(cls, "instance"):
+            cls.instance = super(Cardinal, cls).__new__(cls)
+        return cls.instance
+
     def __init__(self, main_config: ConfigParser,
                  auto_delivery_config: ConfigParser,
                  auto_response_config: ConfigParser,
