@@ -270,7 +270,7 @@ class TGBot:
         """
         Отправляет справку по командам.
         """
-        self.bot.send_message(message.chat.id, utils.generate_help_text(self.commands))
+        self.bot.send_message(message.chat.id, utils.generate_help_text(self.commands), parse_mode="HTML")
 
     def act_manual_delivery_test(self, message: types.Message):
         """
@@ -702,6 +702,7 @@ class TGBot:
             except:
                 logger.error("Произошла ошибка при отправке уведомления в Telegram.")
                 logger.debug(traceback.format_exc())
+                continue
 
     def add_command(self, plugin_name: str, command: str, help_text: str) -> None:
         """

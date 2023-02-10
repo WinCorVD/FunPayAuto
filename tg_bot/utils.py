@@ -94,23 +94,6 @@ def bool_to_text(value: bool | int | str | None, on: str = "🟢", off: str = "�
     return off
 
 
-def generate_help_text(commands_json: dict) -> str:
-    """
-    Генерирует текст справки.
-
-    :return: текст справки.
-    """
-    text = ""
-    for module in commands_json:
-        if not len(commands_json[module]):
-            continue
-
-        text += f"\n{module}\n"
-        for command in commands_json[module]:
-            text += f"    /{command} - {commands_json[module][command]}\n"
-    return text.strip()
-
-
 def get_offset(element_index: int, max_elements_on_page: int) -> int:
     """
     Возвращает смещение списка элементов таким образом, чтобы элемент с индексом element_index оказался в конце списка.
@@ -122,6 +105,23 @@ def get_offset(element_index: int, max_elements_on_page: int) -> int:
         return 0
     else:
         return element_index - elements_on_page + 1
+
+
+def generate_help_text(commands_json: dict) -> str:
+    """
+    Генерирует текст справки.
+
+    :return: текст справки.
+    """
+    text = ""
+    for module in commands_json:
+        if not len(commands_json[module]):
+            continue
+
+        text += f"\n<b><u>{escape(module)}\n</u></b>"
+        for command in commands_json[module]:
+            text += f"    /{command} - <i>{escape(commands_json[module][command])}</i>\n"
+    return text.strip()
 
 
 def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) -> str:
