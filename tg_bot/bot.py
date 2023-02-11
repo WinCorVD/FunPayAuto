@@ -3,6 +3,8 @@
 """
 
 from __future__ import annotations
+
+import cardinal
 from typing import TYPE_CHECKING
 
 import FunPayAPI.types
@@ -56,6 +58,7 @@ class TGBot:
                 "menu": "открыть панель настроек",
                 "notifications": "вкл / выкл уведомления в этом чате",
                 "commands": "получить справку по командам",
+                "profile": "получить статистику аккаунта",
                 "test_lot": "создать ключ для теста авто-выдачи",
                 "ban": "добавить пользователя в ЧС",
                 "unban": "удалить пользователя из ЧС",
@@ -271,6 +274,31 @@ class TGBot:
         Отправляет справку по командам.
         """
         self.bot.send_message(message.chat.id, utils.generate_help_text(self.commands), parse_mode="HTML")
+
+    def send_profile(self, message: types.Message):
+        """
+        Отправляет статистику аккаунта.
+        """
+        self.bot.send_message(message.chat.id, utils.generate_profile_text(self.cardinal.account), parse_mode="HTML",
+                              reply_markup=keyboards.UPDATE_PROFILE_BTN)
+
+    def update_profile(self, call: types.CallbackQuery):
+        new_msg = self.bot.send_message(call.message.chat.id,
+                                        "Обновляю статистику аккаунта (это может занять некоторое время)...")
+        try:
+            self.cardinal.account.get()
+        except:
+            self.bot.edit_message_text("❌ Не удалось обновить статистику аккаунта. "
+                                       "Подробнее в файле <code>logs/log.log</code>.", new_msg.chat.id, new_msg.id,
+                                       parse_mode="HTML")
+            logger.debug(traceback.format_exc())
+            self.bot.answer_callback_query(call.id)
+            return
+
+        self.bot.delete_message(new_msg.chat.id, new_msg.id)
+        self.bot.edit_message_text(utils.generate_profile_text(self.cardinal.account),
+                                   call.message.chat.id, call.message.id, parse_mode="HTML",
+                                   reply_markup=keyboards.UPDATE_PROFILE_BTN)
 
     def act_manual_delivery_test(self, message: types.Message):
         """
@@ -652,6 +680,8 @@ class TGBot:
 
         self.msg_handler(self.send_settings_menu, commands=["menu"])
         self.msg_handler(self.send_commands_help, commands=["commands"])
+        self.msg_handler(self.send_profile, commands=["profile"])
+        self.cbq_handler(self.update_profile, lambda c: c.data == CBT.UPDATE_PROFILE)
         self.msg_handler(self.act_manual_delivery_test, commands=["test_lot"])
         self.msg_handler(self.manual_delivery_text,
                          func=lambda m: self.check_state(m.chat.id, m.from_user.id, CBT.MANUAL_AD_TEST))

@@ -21,6 +21,8 @@ logger = logging.getLogger("TGBot")
 
 CLEAR_STATE_BTN = types.InlineKeyboardMarkup().add(Button("❌ Отмена", callback_data=CBT.CLEAR_USER_STATE))
 
+UPDATE_PROFILE_BTN = types.InlineKeyboardMarkup().add(Button("🔄 Обновить", callback_data=CBT.UPDATE_PROFILE))
+
 
 def power_off(instance_id: int, state: int) -> types.InlineKeyboardMarkup:
     """

@@ -2,12 +2,19 @@
 В данном модуле написаны инструменты, которыми пользуется Telegram бот.
 """
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from FunPayAPI.account import Account
+
 import configparser
 import datetime
 import os.path
 import json
+import time
 
 import Utils.cardinal_tools
+
 
 ABOUT_TEXT = """FunPay Cardinal - это продвинутый бот для автоматизации рутинных действий.
 Разработчик:
@@ -122,6 +129,16 @@ def generate_help_text(commands_json: dict) -> str:
         for command in commands_json[module]:
             text += f"    /{command} - <i>{escape(commands_json[module][command])}</i>\n"
     return text.strip()
+
+
+def generate_profile_text(account: Account) -> str:
+    return f"""Статистика аккаунта <b><i>{account.username}</i></b>
+
+<b>ID:</b> <code>{account.id}</code>
+<b>Баланс:</b> <code>{account.balance} {account.currency}</code>
+<b>Незавершенных заказов:</b> <code>{account.active_orders}</code>
+
+<i>Обновлено:</i>  <code>{time.strftime('%H:%M:%S', time.localtime(account.last_update))}</code>"""
 
 
 def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) -> str:
