@@ -27,16 +27,19 @@ def get_wait_time_from_raise_response(response: str) -> int:
     """
     if response == "Подождите секунду.":
         return 1
+    elif response == "Подождите минуту.":
+        return 60
+    elif response == "Подождите час.":
+        return 3600
     elif "сек" in response:
         response = response.split()
         return int(response[1])
-    elif response == "Подождите минуту.":
-        return 60
     elif "мин" in response:
         response = response.split()
         # ["Подождите", "n", "минут."]
         return (int(response[1])-1) * 60
     elif "час" in response:
-        return 3600
+        response = response.split()
+        return (int(response[1])) * 3600
     else:
         return 10

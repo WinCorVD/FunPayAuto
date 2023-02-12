@@ -9,6 +9,7 @@ import configparser
 import traceback
 import requests
 import datetime
+import inspect
 import logging
 import random
 import time
@@ -31,6 +32,7 @@ def check_proxy(proxy: dict):
     logger.info("Выполняю проверку прокси...")
     try:
         response = requests.get("https://api.myip.com", proxies=proxy, timeout=10.0)
+        print(response.status_code)
     except KeyboardInterrupt:
         return False
     except:
@@ -397,9 +399,10 @@ class Cardinal(object):
                     min_next_time = next_time
                 continue
             if not response.complete:
-                logger.warning(f"Не удалось поднять категорию \"{cat.title}\".")
-                logger.warning(f"Ответ FunPay: {response.funpay_response}")
-                logger.warning(f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.")
+                logger.warning(f"Не удалось поднять категорию \"{cat.title}\". "
+                               f"FunPay говорит подождать еще {cardinal_tools.time_to_str(response.wait)}.")
+                logger.debug(f"Ответ FunPay: {response.funpay_response}")
+                # logger.warning(f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.")
                 next_time = int(time.time()) + response.wait
                 self.raise_time[cat.game_id] = next_time
                 if min_next_time == -1 or next_time < min_next_time:
