@@ -1,4 +1,5 @@
 import Utils.config_loader as cfg_loader
+from first_setup import first_setup
 from colorama import Fore, Style
 import Utils.logger
 import logging.config
@@ -11,6 +12,7 @@ import os
 from cardinal import Cardinal
 import Utils.exceptions as excs
 
+os.chdir(os.path.dirname(__file__))
 
 # Инициируем цветной текст и логгер.
 colorama.init()
@@ -60,6 +62,10 @@ print(f"{Fore.MAGENTA}{Style.BRIGHT} * Telegram: {Fore.BLUE}{Style.BRIGHT}t.me/f
 print(f"{Fore.MAGENTA}{Style.BRIGHT} * VK: {Fore.BLUE}{Style.BRIGHT}vk.com/woopertail")
 print(f"{Fore.MAGENTA}{Style.BRIGHT} * ИНСТРУКЦИЯ: {Fore.BLUE}{Style.BRIGHT}woopertail.ru")
 print("\n\n")
+
+if not os.path.exists("configs/_main.cfg"):
+    first_setup()
+    sys.exit()
 
 
 # Загружаем конфиги

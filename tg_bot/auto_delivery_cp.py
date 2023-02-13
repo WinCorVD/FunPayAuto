@@ -395,7 +395,8 @@ $product""")
         cardinal.AD_CFG.set(lot, param, value)
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
         logger.info(
-            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET изменил параметр $CYAN{param}$RESET "
+            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET "
+            f"изменил параметр $CYAN{param}$RESET "
             f"секции $YELLOW[{lot}]$RESET на $YELLOW{value}$RESET.")
         bot.edit_message_text(utils.generate_lot_info_text(lot, lot_obj),
                               c.message.chat.id, c.message.id, parse_mode="HTML",

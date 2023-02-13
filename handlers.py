@@ -54,7 +54,7 @@ ORDER_HTML_TEMPLATE = """<a href="https://funpay.com/orders/DELIVERY_TEST/" clas
 </a>"""
 
 
-AMOUNT_EXPRESSION = re.compile(r'[\d]+ шт\.')
+AMOUNT_EXPRESSION = re.compile(r'\d+ шт\.')
 
 
 # Новое сообщение (REGISTER_TO_NEW_MESSAGE)
