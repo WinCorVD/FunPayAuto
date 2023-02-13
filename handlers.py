@@ -373,6 +373,10 @@ def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):
     """
     Обновляет состояние лота
 
+    :param cardinal: экземпляр Кардинала.
+
+    :param lot: экземпляр лота.
+
     :param task: -1 - деактивировать лот. 1 - активировать лот.
     """
     attempts = 3

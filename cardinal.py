@@ -9,7 +9,6 @@ import configparser
 import traceback
 import requests
 import datetime
-import inspect
 import logging
 import random
 import time
@@ -50,7 +49,7 @@ def get_cardinal() -> None | Cardinal:
     """
     if not hasattr(Cardinal, "instance"):
         return None
-    return Cardinal.instance
+    return getattr(Cardinal, "instance")
 
 
 class Cardinal(object):
@@ -58,7 +57,7 @@ class Cardinal(object):
         # Singleton
         if not hasattr(cls, "instance"):
             cls.instance = super(Cardinal, cls).__new__(cls)
-        return cls.instance
+        return getattr(cls, "instance")
 
     def __init__(self, main_config: ConfigParser,
                  auto_delivery_config: ConfigParser,

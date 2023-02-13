@@ -438,7 +438,8 @@ class Account:
             # Если была всего 1 категория и FunPay ее поднял без отправки modal-окна
             return types.RaiseResponse(True, 3600, [category.title], check)
         elif check.get("modal"):
-            # Если же появилась модалка, то парсим все чекбоксы и отправляем запрос на поднятие всех категорий, кроме тех,
+            # Если же появилась модалка,
+            # то парсим все чекбоксы и отправляем запрос на поднятие всех категорий, кроме тех,
             # которые в exclude.
             parser = BeautifulSoup(check.get("modal"), "html.parser")
             category_ids = []
