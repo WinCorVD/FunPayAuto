@@ -130,7 +130,7 @@ def send_command_notification_handler(cardinal: Cardinal, event: NewMessageEvent
     if not cardinal.telegram or command not in cardinal.AR_CFG:
         return
 
-    if cardinal.AR_CFG[command].getboolean("telegramNotification") is None:
+    if not cardinal.AR_CFG[command].getboolean("telegramNotification"):
         return
 
     if cardinal.AR_CFG[command].get("notificationText") is None:
