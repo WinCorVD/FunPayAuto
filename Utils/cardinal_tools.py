@@ -310,7 +310,7 @@ def format_order_text(text: str, order: FunPayAPI.types.Order) -> str:
         "$time": time_,
         "$full_time": time_full,
         "$username": order.buyer_username,
-        "$order_name": order.title,
+        "$order_desc": order.title,
         "$order_id": order.id
     }
 

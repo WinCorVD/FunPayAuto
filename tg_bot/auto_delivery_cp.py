@@ -248,7 +248,19 @@ $product""")
         """
         split = c.data.split(":")
         lot_index, offset = int(split[1]), int(split[2])
-        result = bot.send_message(c.message.chat.id, "Введите новый текст выдачи товара.",
+        result = bot.send_message(c.message.chat.id,
+                                  "Введите новый текст выдачи товара."
+                                  "\nСписок переменных:"
+                                  "\n<code>$full_date_text</code> - текущая дата в формате <i>01.01.2001</i>."
+                                  "\n<code>$date_text</code> - текущая дата в формате <i>1 января</i>."
+                                  "\n<code>$date</code> - текущая дата в формате <i>1 января 2001 года</i>."
+                                  "\n<code>$time</code> - текущее время в формате <i>ЧЧ:ММ</i>."
+                                  "\n<code>$full_time</code> - текущее время в формате <i>ЧЧ:ММ:СС</i>."
+                                  "\n<code>$username</code> - никнейм написавшего пользователя."
+                                  "\n<code>$product</code> - товар(-ы), полученный(-е) из товарного файла. "
+                                  "Если товарный файл не привязан - не будет подменяться."
+                                  "\n<code>$order_desc</code> - краткое описание заказа (лот, кол-во, сервер и т.д.)."
+                                  "\n<code>$order_id</code> - ID заказа.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
         tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.EDIT_LOT_DELIVERY_TEXT,
                           {"lot_index": lot_index, "offset": offset})
