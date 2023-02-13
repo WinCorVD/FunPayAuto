@@ -33,7 +33,6 @@ class TGBot:
         self.bot = telebot.TeleBot(self.cardinal.MAIN_CFG["Telegram"]["token"])
 
         self.authorized_users = utils.load_authorized_users()
-        self.chat_ids = utils.load_chat_ids()
 
         # [(chat_id, message_id)]
         self.init_messages = []
@@ -255,7 +254,7 @@ class TGBot:
 
 🔕 Учти, что сейчас я <b><u>не отправляю никакие уведомления в этот чат</u></b>.
 
-🔔 Ты можешь включить / выключить отправку уведомлений <b><u>в этот чат</u></b> с помощью команды /notifications.
+🔔 Ты можешь настроить уведомления для <b><u>этого чата</u></b> в меню настроек.
 
 ⚙️ Чтобы открыть меню настроек <i>FunPay Cardinal</i>, введи команду /menu."""
             logger.warning(f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET "
@@ -286,25 +285,6 @@ class TGBot:
         """
         self.bot.send_message(message.chat.id, "Добро пожаловать в панель управления. Выберите категорию настроек.",
                               reply_markup=keyboards.settings_sections())
-
-    def switch_notifications(self, message: types.Message):
-        """
-        Включает / отключает уведомления в чате.
-        """
-        if message.chat.id in self.chat_ids:
-            self.chat_ids.remove(message.chat.id)
-            utils.save_chat_ids(self.chat_ids)
-            logger.info(
-                f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET выключил "
-                f"уведомления в чате $MAGENTA@{message.chat.username} (id {message.chat.id})$RESET.")
-            self.bot.send_message(message.chat.id, "🔕 Теперь в этот чат не будут приходить уведомления.")
-        else:
-            self.chat_ids.append(message.chat.id)
-            utils.save_chat_ids(self.chat_ids)
-            logger.info(
-                f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET включил "
-                f"уведомления в чате $MAGENTA@{message.chat.username} (id {message.chat.id})$RESET.")
-            self.bot.send_message(message.chat.id, "🔔 Теперь в этот чат будут приходить уведомления.")
 
     def send_commands_help(self, message: types.Message):
         """
@@ -738,7 +718,6 @@ ID чата: <code>{call.message.chat.id}</code>""",
         self.msg_handler(self.act_manual_delivery_test, commands=["test_lot"])
         self.msg_handler(self.manual_delivery_text,
                          func=lambda m: self.check_state(m.chat.id, m.from_user.id, CBT.MANUAL_AD_TEST))
-        self.msg_handler(self.switch_notifications, commands=["notifications"])
         self.msg_handler(self.act_ban, commands=["ban"])
         self.msg_handler(self.ban, func=lambda m: self.check_state(m.chat.id, m.from_user.id, CBT.BAN))
         self.msg_handler(self.act_unban, commands=["unban"])
@@ -767,7 +746,7 @@ ID чата: <code>{call.message.chat.id}</code>""",
     def send_notification(self, text: str, inline_keyboard=None,
                           notification_type: str = utils.NotificationTypes.other):
         """
-        Отправляет сообщение во все чаты для уведомлений из self.chat_ids.
+        Отправляет сообщение во все чаты для уведомлений из self.notification_settings.
 
         :param text: текст уведомления.
 
@@ -775,7 +754,7 @@ ID чата: <code>{call.message.chat.id}</code>""",
 
         :param notification_type: тип уведомления.
         """
-        for chat_id in self.chat_ids:
+        for chat_id in self.notification_settings:
             if not self.is_notification_enabled(chat_id, notification_type):
                 continue
             try:

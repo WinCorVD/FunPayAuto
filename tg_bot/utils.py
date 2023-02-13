@@ -60,21 +60,8 @@ def load_notifications_settings() -> dict:
     """
     if not os.path.exists("storage/cache/notifications_settings.json"):
         return {}
-    with open("storage/cache/notification_settings.json", "r", encoding="utf-8") as f:
+    with open("storage/cache/notifications_settings.json", "r", encoding="utf-8") as f:
         return json.loads(f.read())
-
-
-def load_chat_ids() -> list[int]:
-    """
-    Загружает список чатов для уведомлений из кэша.
-
-    :return: список из id чатов для уведомлений.
-    """
-    if not os.path.exists("storage/cache/tg_chat_ids.json"):
-        return []
-    with open("storage/cache/tg_chat_ids.json", "r", encoding="utf-8") as f:
-        data = f.read()
-    return json.loads(data)
 
 
 def save_authorized_users(users: list[int]) -> None:
@@ -100,19 +87,6 @@ def save_notifications_settings(settings: dict) -> None:
         os.makedirs("storage/cache/")
     with open("storage/cache/notifications_settings.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(settings))
-
-
-def save_chat_ids(chat_ids: list[int]) -> None:
-    """
-    Сохраняет id чатов для уведомлений в кэш.
-
-    :param chat_ids: список id чатов для уведомлений.
-    """
-    if not os.path.exists("storage/cache/"):
-        os.makedirs("storage/cache/")
-
-    with open("storage/cache/tg_chat_ids.json", "w", encoding="utf-8") as f:
-        f.write(json.dumps(chat_ids))
 
 
 def escape(text: str) -> str:
