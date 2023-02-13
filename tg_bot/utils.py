@@ -26,6 +26,19 @@ ABOUT_TEXT = """FunPay Cardinal - это продвинутый бот для а
 https://github.com/woopertail/FunPayCardinal"""
 
 
+class NotificationTypes:
+    """
+    Класс с типами Telegram уведомлений.
+    """
+    bot_start = "init"
+    new_message = "newmsg"
+    command = "command"
+    new_order = "neword"
+    delivery = "delivery"
+    lots_raise = "raise"
+    other = "other"
+
+
 def load_authorized_users() -> list[int]:
     """
     Загружает авторизированных пользователей из кэша.
@@ -37,6 +50,18 @@ def load_authorized_users() -> list[int]:
     with open("storage/cache/tg_authorized_users.json", "r", encoding="utf-8") as f:
         data = f.read()
     return json.loads(data)
+
+
+def load_notifications_settings() -> dict:
+    """
+    Загружает настройки Telegram уведомлений из кэша.
+
+    :return: настройки Telegram уведомлений.
+    """
+    if not os.path.exists("storage/cache/notifications_settings.json"):
+        return {}
+    with open("storage/cache/notification_settings.json", "r", encoding="utf-8") as f:
+        return json.loads(f.read())
 
 
 def load_chat_ids() -> list[int]:
@@ -63,6 +88,18 @@ def save_authorized_users(users: list[int]) -> None:
 
     with open("storage/cache/tg_authorized_users.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(users))
+
+
+def save_notifications_settings(settings: dict) -> None:
+    """
+    Сохраняет настройки Telegram-уведомлений.
+
+    :param settings: настройки Telegram-уведомлений.
+    """
+    if not os.path.exists("storage/cache/"):
+        os.makedirs("storage/cache/")
+    with open("storage/cache/notifications_settings.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(settings))
 
 
 def save_chat_ids(chat_ids: list[int]) -> None:

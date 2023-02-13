@@ -108,27 +108,39 @@ def main_settings(cardinal: Cardinal) -> types.InlineKeyboardMarkup:
     return keyboard
 
 
-def notifications_settings(cardinal: Cardinal) -> types.InlineKeyboardMarkup:
+def notifications_settings(cardinal: Cardinal, chat_id: int) -> types.InlineKeyboardMarkup:
     """
     Создает клавиатуру настроек уведомлений (CBT.CATEGORY:telegram).
 
     :param cardinal: экземпляр кардинала.
 
+    :param chat_id: ID чата, в котором вызвана данная клавиатура.
+
     :return: экземпляр клавиатуры.
     """
+    tg = cardinal.telegram
     keyboard = types.InlineKeyboardMarkup()\
-        .add(Button(f"Уведомления о поднятии лотов "
-                    f"{'🔔' if int(cardinal.MAIN_CFG['Telegram']['lotsRaiseNotification']) else '🔕'}",
-                    callback_data=f"{CBT.SWITCH}:Telegram:lotsRaiseNotification"))\
-        .add(Button(f"Уведомления о новых сообщениях "
-                    f"{'🔔' if int(cardinal.MAIN_CFG['Telegram']['newMessageNotification']) else '🔕'}",
-                    callback_data=f"{CBT.SWITCH}:Telegram:newMessageNotification"))\
-        .add(Button(f"Уведомления о новых заказах "
-                    f"{'🔔' if int(cardinal.MAIN_CFG['Telegram']['newOrderNotification']) else '🔕'}",
-                    callback_data=f"{CBT.SWITCH}:Telegram:newOrderNotification"))\
-        .add(Button(f"Уведомления о выдаче товара "
-                    f"{'🔔' if int(cardinal.MAIN_CFG['Telegram']['productsDeliveryNotification']) else '🔕'}",
-                    callback_data=f"{CBT.SWITCH}:Telegram:productsDeliveryNotification"))\
+        .row(Button(f"Новое сообщение "
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.new_message) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.new_message}"),
+             Button(f"Введена команда "
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.command) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.command}"))\
+        .row(Button(f"Новый заказ "
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.new_order) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.new_order}"),
+             Button(f"Выдача товара "
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.delivery) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.delivery}"))\
+        .add(Button(f"Поднятие лотов "
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.lots_raise) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.lots_raise}"))\
+        .add(Button(f"Запуск бота "
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.bot_start) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.bot_start}"))\
+        .add(Button(f"Прочее (плагины) "
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.other) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.other}")) \
         .add(Button("◀️ Назад", callback_data=CBT.MAIN))
     return keyboard
 

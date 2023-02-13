@@ -279,6 +279,16 @@ config: str - тип конфига.
 
 
 # Прочее
+SWITCH_TG_NOTIFICATIONS = "switch_tg_notification"
+"""
+Callback для вкл. / выкл. определенного типа уведомлений в определенном Telegram чате.
+Использование: switch_tg_notification:chat_id:notification_type
+
+chat_id: int - ID Telegram чата.
+notification_type: str - тип уведомлений (tg_bot.utils.NotificationTypes)
+"""
+
+
 REQUEST_REFUND = "request_refund"
 """
 Callback для обновления меню с действиями по заказу (уточнение по возврату средств)

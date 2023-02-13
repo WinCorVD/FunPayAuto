@@ -3,12 +3,7 @@
 """
 
 from __future__ import annotations
-
-import cardinal
 from typing import TYPE_CHECKING
-
-import FunPayAPI.types
-
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
@@ -20,6 +15,7 @@ import psutil
 import telebot
 import logging
 import traceback
+import FunPayAPI.types
 
 from telebot import types
 from telebot.types import InlineKeyboardButton as Button
@@ -52,6 +48,16 @@ class TGBot:
         #     }
         # }
         self.user_states = {}
+
+        # {
+        #    chat_id: {
+        #        utils.NotificationTypes.new_message: bool,
+        #        utils.NotificationTypes.new_order: bool,
+        #        ...
+        #    },
+        # }
+        #
+        self.notification_settings = utils.load_notifications_settings()
 
         self.commands = {
             "FunPayCardinal": {
@@ -164,6 +170,37 @@ class TGBot:
         if self.user_states[chat_id][user_id].get("state") != state:
             return False
         return True
+
+    # Notification settings
+    def is_notification_enabled(self, chat_id: int, notification_type: str) -> bool:
+        """
+        Включен ли указанный тип уведомлений в указанном чате?
+
+        :param chat_id: ID Telegram чата.
+
+        :param notification_type: тип уведомлений.
+        """
+        if chat_id not in self.notification_settings:
+            return False
+        return bool(self.notification_settings[chat_id].get(notification_type))
+
+    def toggle_notification(self, chat_id: int, notification_type: str) -> bool:
+        """
+        Переключает указанный тип уведомлений в указанном чате и сохраняет настройки уведомлений.
+
+        :param chat_id: ID Telegram чата.
+
+        :param notification_type: тип уведомлений.
+        """
+        if chat_id not in self.notification_settings:
+            self.notification_settings[chat_id] = {}
+        if not self.notification_settings[chat_id].get(notification_type):
+            self.notification_settings[chat_id][notification_type] = True
+        else:
+            self.notification_settings[chat_id][notification_type] = False
+
+        utils.save_notifications_settings(self.notification_settings)
+        return self.notification_settings[chat_id][notification_type]
 
     # handler binders
     def msg_handler(self, handler, **kwargs):
@@ -618,15 +655,26 @@ class TGBot:
         if section == "FunPay":
             self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id,
                                                reply_markup=keyboards.main_settings(self.cardinal))
-        elif section == "Telegram":
-            self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id,
-                                               reply_markup=keyboards.notifications_settings(self.cardinal))
         elif section == "BlockList":
             self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id,
                                                reply_markup=keyboards.block_list_settings(self.cardinal))
         logger.info(f"Пользователь $MAGENTA{call.from_user.username} (id: {call.from_user.id})$RESET изменил параметр "
                     f"$CYAN{option}$RESET секции $YELLOW[{section}]$RESET "
                     f"основного конфига на $YELLOW{self.cardinal.MAIN_CFG[section][option]}$RESET.")
+        self.bot.answer_callback_query(call.id)
+
+    def switch_chat_notification(self, call: types.CallbackQuery):
+        split = call.data.split(":")
+        chat_id, notification_type = int(split[1]), split[2]
+
+        result = self.toggle_notification(chat_id, notification_type)
+
+        logger.info(f"Пользователь $MAGENTA{call.from_user.username} (id: {call.from_user.id})$RESET переключил "
+                    f"уведомления $YELLOW{notification_type}$RESET для чата $YELLOW{call.message.chat.id}$RESET на "
+                    f"$CYAN{result}$RESET.")
+        self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id,
+                                           reply_markup=keyboards.notifications_settings(self.cardinal,
+                                                                                         call.message.chat.id))
         self.bot.answer_callback_query(call.id)
 
     def open_settings_section(self, call: types.CallbackQuery):
@@ -639,9 +687,14 @@ class TGBot:
                                        call.message.chat.id, call.message.id,
                                        reply_markup=keyboards.main_settings(self.cardinal))
         elif section == "telegram":
-            self.bot.edit_message_text("Здесь вы можете включить и отключать уведомления в Telegram.",
-                                       call.message.chat.id, call.message.id,
-                                       reply_markup=keyboards.notifications_settings(self.cardinal))
+            self.bot.edit_message_text(f"""Здесь вы можете настроить Telegram-уведомления.
+
+<b><u>Настройки для каждого чата свои!</u></b>
+
+ID чата: <code>{call.message.chat.id}</code>""",
+                                       call.message.chat.id, call.message.id, parse_mode="HTML",
+                                       reply_markup=keyboards.notifications_settings(self.cardinal,
+                                                                                     call.message.chat.id))
         elif section == "blockList":
             self.bot.edit_message_text("Здесь вы можете изменить настройки черного списка. "
                                        "Все ограничения, представленные ниже, "
@@ -706,11 +759,13 @@ class TGBot:
         self.cbq_handler(self.open_cp, lambda call: call.data == CBT.MAIN)
         self.cbq_handler(self.open_settings_section, lambda call: call.data.startswith(f"{CBT.CATEGORY}:"))
         self.cbq_handler(self.switch_param, lambda call: call.data.startswith(f"{CBT.SWITCH}:"))
+        self.cbq_handler(self.switch_chat_notification, lambda call: call.data.startswith(f"{CBT.SWITCH_TG_NOTIFICATIONS}:"))
         self.cbq_handler(self.power_off, lambda call: call.data.startswith(f"{CBT.SHUT_DOWN}:"))
         self.cbq_handler(self.cancel_power_off, lambda call: call.data == CBT.CANCEL_SHUTTING_DOWN)
         self.cbq_handler(self.cancel_action, lambda c: c.data == CBT.CLEAR_USER_STATE)
 
-    def send_notification(self, text: str, inline_keyboard=None, init_notification=False):
+    def send_notification(self, text: str, inline_keyboard=None,
+                          notification_type: str = utils.NotificationTypes.other):
         """
         Отправляет сообщение во все чаты для уведомлений из self.chat_ids.
 
@@ -718,16 +773,18 @@ class TGBot:
 
         :param inline_keyboard: экземпляр клавиатуры.
 
-        :param init_notification: это уведомление о старте Telegram-бота?
+        :param notification_type: тип уведомления.
         """
         for chat_id in self.chat_ids:
+            if not self.is_notification_enabled(chat_id, notification_type):
+                continue
             try:
                 if inline_keyboard is None:
                     new_msg = self.bot.send_message(chat_id, text, parse_mode='HTML')
                 else:
                     new_msg = self.bot.send_message(chat_id, text, parse_mode='HTML', reply_markup=inline_keyboard)
 
-                if init_notification:
+                if notification_type == utils.NotificationTypes.bot_start:
                     self.init_messages.append((new_msg.chat.id, new_msg.id))
             except:
                 logger.error("Произошла ошибка при отправке уведомления в Telegram.")
@@ -777,7 +834,8 @@ class TGBot:
 
 🔃 Как только <i>FunPay Cardinal</i> инициализируется - данное сообщение изменится.
 
-📋 Если <i>FPC</i> долго не инициализируется - проверьте логи с помощью команды /logs""", init_notification=True)
+📋 Если <i>FPC</i> долго не инициализируется - проверьте логи с помощью команды /logs""",
+                               notification_type=utils.NotificationTypes.bot_start)
         try:
             logger.info(f"$CYANTelegram бот $YELLOW@{self.bot.user.username} $CYANзапущен.")
             self.bot.infinity_polling(logger_level=logging.DEBUG)

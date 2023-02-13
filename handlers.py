@@ -98,9 +98,7 @@ def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageE
     """
     Отправляет уведомление о новом сообщении в телеграм.
     """
-    if cardinal.telegram is None or not cardinal.MAIN_CFG["Telegram"].getboolean("newMessageNotification"):
-        return
-    if not event.message.unread:
+    if not cardinal.telegram or not event.message.unread:
         return
     if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockNewMessageNotification"]):
         return
@@ -118,7 +116,8 @@ def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageE
 <b><i>{event.message.chat_with}:</i></b> <code>{utils.escape(event.message.text)}</code>"""
 
     button = keyboards.reply(event.message.node_id, event.message.chat_with)
-    Thread(target=cardinal.telegram.send_notification, args=(text, button), daemon=True).start()
+    Thread(target=cardinal.telegram.send_notification, args=(text, button, utils.NotificationTypes.new_message),
+           daemon=True).start()
 
 
 def send_command_notification_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
@@ -128,12 +127,10 @@ def send_command_notification_handler(cardinal: Cardinal, event: NewMessageEvent
     if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockCommandNotification"]):
         return
     command = event.message.text.strip().lower()
-    if cardinal.telegram is None or command not in cardinal.AR_CFG:
+    if not cardinal.telegram or command not in cardinal.AR_CFG:
         return
 
-    if cardinal.AR_CFG[command].get("telegramNotification") is None:
-        return
-    if not int(cardinal.AR_CFG[command]["telegramNotification"]):
+    if cardinal.AR_CFG[command].getboolean("telegramNotification") is None:
         return
 
     if cardinal.AR_CFG[command].get("notificationText") is None:
@@ -141,7 +138,8 @@ def send_command_notification_handler(cardinal: Cardinal, event: NewMessageEvent
     else:
         text = cardinal_tools.format_msg_text(cardinal.AR_CFG[command]["notificationText"], event.message)
 
-    Thread(target=cardinal.telegram.send_notification, args=(text, ), daemon=True).start()
+    Thread(target=cardinal.telegram.send_notification, args=(text,),
+           kwargs={"notification_type": utils.NotificationTypes.command}, daemon=True).start()
 
 
 def test_auto_delivery_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
@@ -173,7 +171,7 @@ def send_categories_raised_notification_handler(cardinal: Cardinal, game_id: int
     """
     Отправляет уведомление о поднятии лотов в Telegram.
     """
-    if cardinal.telegram is None or not int(cardinal.MAIN_CFG["Telegram"]["lotsRaiseNotification"]):
+    if not cardinal.telegram:
         return
 
     cats_text = "".join(f"\"{i}\", " for i in response.raised_category_names).strip()[:-1]
@@ -181,7 +179,8 @@ def send_categories_raised_notification_handler(cardinal: Cardinal, game_id: int
     Thread(target=cardinal.telegram.send_notification,
            args=(f"Поднял категории: {cats_text}. (ID игры: {game_id})\n"
                  f"Ответ FunPay: {response.funpay_response}"
-                 f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.", ), daemon=True).start()
+                 f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.", ),
+           kwargs={"notification_type": utils.NotificationTypes.lots_raise}, daemon=True).start()
 
 
 # Изменен список ордеров (REGISTER_TO_ORDERS_LIST_CHANGED)
@@ -243,9 +242,7 @@ def send_new_order_notification_handler(cardinal: Cardinal, event: NewOrderEvent
     """
     if event.order.buyer_username in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockNewOrderNotification"]):
         return
-    if cardinal.telegram is None:
-        return
-    if not int(cardinal.MAIN_CFG["Telegram"]["newOrderNotification"]):
+    if not cardinal.telegram:
         return
 
     text = f"""<b>Новый заказ</b>  <code>{event.order.id}</code>
@@ -255,7 +252,8 @@ def send_new_order_notification_handler(cardinal: Cardinal, event: NewOrderEvent
 <b><i>Лот:</i></b>  <code>{utils.escape(event.order.title)}</code>"""
 
     keyboard = keyboards.new_order(event.order.id[1:])
-    Thread(target=cardinal.telegram.send_notification, args=(text, keyboard), daemon=True).start()
+    Thread(target=cardinal.telegram.send_notification, args=(text, keyboard, utils.NotificationTypes.new_order),
+           daemon=True).start()
 
 
 def deliver_product(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: configparser.SectionProxy,
@@ -309,9 +307,10 @@ def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> 
     if event.order.buyer_username in cardinal.block_list and cardinal.MAIN_CFG["BlockList"].getboolean("blockDelivery"):
         logger.info(f"Пользователь {event.order.buyer_username} находится в ЧС и включена блокировка авто-выдачи. "
                     f"$YELLOW(ID: {event.order.id})$RESET")
-        if cardinal.telegram and cardinal.MAIN_CFG["Telegram"].getboolean("productsDeliveryNotification"):
-            cardinal.telegram.send_notification(f"Пользователь {event.order.buyer_username} находится в ЧС и включена "
-                                                f"блокировка авто-выдачи.")
+        if cardinal.telegram:
+            text = f"Пользователь {event.order.buyer_username} находится в ЧС и включена блокировка авто-выдачи."
+            Thread(target=cardinal.telegram.send_notification, args=(text, ),
+                   kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
         return
 
     # Ищем название лота в конфиге.
@@ -356,8 +355,6 @@ def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent,
     """
     if cardinal.telegram is None:
         return
-    if not int(cardinal.MAIN_CFG["Telegram"]["productsDeliveryNotification"]):
-        return
 
     if errored:
         text = f"""Произошла ошибка при выдаче товара для ордера <code>{event.order.id}</code>.
@@ -368,7 +365,8 @@ def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent,
 ----- ТОВАР -----
 {utils.escape(delivery_text)}"""
 
-    Thread(target=cardinal.telegram.send_notification, args=(text, ), daemon=True).start()
+    Thread(target=cardinal.telegram.send_notification, args=(text, ),
+           kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
 
 
 def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):

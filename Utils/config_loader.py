@@ -83,11 +83,7 @@ def load_main_config(config_path: str):
         "Telegram": {
             "enabled": ["0", "1"],
             "token": "any+empty",
-            "secretKey": "any",
-            "lotsRaiseNotification": ["0", "1"],
-            "newMessageNotification": ["0", "1"],
-            "newOrderNotification": ["0", "1"],
-            "productsDeliveryNotification": ["0", "1"]
+            "secretKey": "any"
         },
 
         "BlockList": {
