@@ -157,7 +157,16 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         split = c.data.split(":")
         command_index, offset = int(split[1]), int(split[2])
 
-        result = bot.send_message(c.message.chat.id, "Введите новый текст ответа.",
+        result = bot.send_message(c.message.chat.id,
+                                  "Введите новый текст ответа."
+                                  "\nСписок переменных:"
+                                  "\n<code>$full_date_text</code> - текущая дата в формате <i>01.01.2001</i>."
+                                  "\n<code>$date_text</code> - текущая дата в формате <i>1 января</i>."
+                                  "\n<code>$date</code> - текущая дата в формате <i>1 января 2001 года</i>."
+                                  "\n<code>$time</code> - текущее время в формате <i>ЧЧ:ММ</i>."
+                                  "\n<code>$full_time</code> - текущее время в формате <i>ЧЧ:ММ:СС</i>."
+                                  "\n<code>$username</code> - никнейм написавшего пользователя."
+                                  "\n<code>$message_text</code> - текст сообщения, которое ввел пользователь.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
 
         tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.EDIT_CMD_RESPONSE_TEXT,
