@@ -179,6 +179,7 @@ class TGBot:
 
         :param notification_type: тип уведомлений.
         """
+        chat_id = str(chat_id)
         if chat_id not in self.notification_settings:
             return False
         return bool(self.notification_settings[chat_id].get(notification_type))
@@ -191,6 +192,7 @@ class TGBot:
 
         :param notification_type: тип уведомлений.
         """
+        chat_id = str(chat_id)
         if chat_id not in self.notification_settings:
             self.notification_settings[chat_id] = {}
         if not self.notification_settings[chat_id].get(notification_type):
