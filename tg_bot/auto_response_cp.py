@@ -159,7 +159,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
 
         result = bot.send_message(c.message.chat.id,
                                   "Введите новый текст ответа."
-                                  "\nСписок переменных:"
+                                  "\n\nСписок переменных:"
                                   "\n<code>$full_date_text</code> - текущая дата в формате <i>01.01.2001</i>."
                                   "\n<code>$date_text</code> - текущая дата в формате <i>1 января</i>."
                                   "\n<code>$date</code> - текущая дата в формате <i>1 января 2001 года</i>."
@@ -213,7 +213,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         command_index, offset = int(split[1]), int(split[2])
         result = bot.send_message(c.message.chat.id,
                                   "Введите новый текст уведомления."
-                                  "\nСписок переменных:"
+                                  "\n\nСписок переменных:"
                                   "\n<code>$full_date_text</code> - текущая дата в формате <i>01.01.2001</i>."
                                   "\n<code>$date_text</code> - текущая дата в формате <i>1 января</i>."
                                   "\n<code>$date</code> - текущая дата в формате <i>1 января 2001 года</i>."

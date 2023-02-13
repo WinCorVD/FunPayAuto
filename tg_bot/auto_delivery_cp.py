@@ -250,7 +250,7 @@ $product""")
         lot_index, offset = int(split[1]), int(split[2])
         result = bot.send_message(c.message.chat.id,
                                   "Введите новый текст выдачи товара."
-                                  "\nСписок переменных:"
+                                  "\n\nСписок переменных:"
                                   "\n<code>$full_date_text</code> - текущая дата в формате <i>01.01.2001</i>."
                                   "\n<code>$date_text</code> - текущая дата в формате <i>1 января</i>."
                                   "\n<code>$date</code> - текущая дата в формате <i>1 января 2001 года</i>."
