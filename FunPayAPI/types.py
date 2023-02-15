@@ -302,7 +302,9 @@ class RaiseResponse:
     """
     Класс, описывающий ответ FunPay на запрос о поднятии лотов.
     """
-    def __init__(self, complete: bool, wait: int, raised_category_names: list[str], funpay_response: dict):
+    def __init__(self, complete: bool, wait: int,
+                 raised_category_names: list[str], raised_category_ids: list[int],
+                 funpay_response: dict):
         """
         :param complete: удалось ли поднять лоты.
 
@@ -310,11 +312,14 @@ class RaiseResponse:
 
         :param raised_category_names: названия поднятых категорий (из modal-формы).
 
+        :param raised_category_ids: ID поднятых категорий (из modal-формы).
+
         :param funpay_response: полный ответ Funpay.
         """
         self.complete = complete
         self.wait = wait
         self.raised_category_names = raised_category_names
+        self.raised_category_ids = raised_category_ids
         self.funpay_response = funpay_response
 
 

@@ -171,15 +171,18 @@ def send_categories_raised_notification_handler(cardinal: Cardinal, game_id: int
     """
     Отправляет уведомление о поднятии лотов в Telegram.
     """
-    if not cardinal.telegram:
+    if not response.complete or not cardinal.telegram:
         return
 
-    cats_text = "".join(f"\"{i}\", " for i in response.raised_category_names).strip()[:-1]
+    categories_names = [i.title for i in cardinal.categories if i.id in response.raised_category_ids]
+    categories_text = "\n".join(f"<code>{i}</code>" for i in categories_names)
+    text = f"""⤴️<b><i>Поднял лоты!</i></b>
 
+Поднятые категории:
+{categories_text}
+"""
     Thread(target=cardinal.telegram.send_notification,
-           args=(f"Поднял категории: {cats_text}. (ID игры: {game_id})\n"
-                 f"Ответ FunPay: {response.funpay_response}"
-                 f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.", ),
+           args=(text, ),
            kwargs={"notification_type": utils.NotificationTypes.lots_raise}, daemon=True).start()
 
 

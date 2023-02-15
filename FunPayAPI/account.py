@@ -472,9 +472,9 @@ class Account:
             json_response = response.json()
             logger.debug(f"Ответ FunPay (поднятие категорий): {json_response}.")
             if not json_response.get("error"):
-                return types.RaiseResponse(True, 3600, category_names, json_response)
+                return types.RaiseResponse(True, 3600, category_names, category_ids, json_response)
             else:
-                return types.RaiseResponse(False, 10, [], json_response)
+                return types.RaiseResponse(False, 10, [], [], json_response)
 
     def refund_order(self, order_id: str) -> None:
         """
