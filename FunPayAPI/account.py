@@ -430,13 +430,13 @@ class Account:
         check = self.request_lots_raise(category)
         if check.get("error") and check.get("msg") and "Подождите" in check.get("msg"):
             wait_time = utils.get_wait_time_from_raise_response(check.get("msg"))
-            return types.RaiseResponse(False, wait_time, [], check)
+            return types.RaiseResponse(False, wait_time, [], [], check)
         elif check.get("error"):
             # Если вернулся ответ с ошибкой и это не "Подождите n времени" - значит творится какая-то дичь.
-            return types.RaiseResponse(False, 10, [], check)
+            return types.RaiseResponse(False, 10, [], [], check)
         elif check.get("error") is not None and not check.get("error"):
             # Если была всего 1 категория и FunPay ее поднял без отправки modal-окна
-            return types.RaiseResponse(True, 3600, [category.title], check)
+            return types.RaiseResponse(True, 3600, [category.title], [category.id], check)
         elif check.get("modal"):
             # Если же появилась модалка,
             # то парсим все чекбоксы и отправляем запрос на поднятие всех категорий, кроме тех,
