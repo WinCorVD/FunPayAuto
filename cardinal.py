@@ -27,7 +27,7 @@ from threading import Thread
 logger = logging.getLogger("FPC")
 
 
-def check_proxy(proxy: dict):
+def check_proxy(proxy: dict) -> bool:
     logger.info("Выполняю проверку прокси...")
     try:
         response = requests.get("https://api.myip.com", proxies=proxy, timeout=10.0)
@@ -35,7 +35,7 @@ def check_proxy(proxy: dict):
     except KeyboardInterrupt:
         return False
     except:
-        logger.error("Не удалось подключиться к прокси. Убедитесь, данные веедены верно.")
+        logger.error("Не удалось подключиться к прокси. Убедитесь, что данные введены верно.")
         logger.debug(traceback.format_exc())
         return False
     logger.info(f"Прокси успешно проверен! Запросы к FunPay будут отправлять с "
@@ -45,11 +45,10 @@ def check_proxy(proxy: dict):
 
 def get_cardinal() -> None | Cardinal:
     """
-    Возвращает существующий экземпляр кардинала (или None, если такового нет).
+    Возвращает существующий экземпляр кардинала.
     """
-    if not hasattr(Cardinal, "instance"):
-        return None
-    return getattr(Cardinal, "instance")
+    if hasattr(Cardinal, "instance"):
+        return getattr(Cardinal, "instance")
 
 
 class Cardinal(object):
@@ -64,10 +63,9 @@ class Cardinal(object):
                  auto_response_config: ConfigParser,
                  raw_auto_response_config: ConfigParser):
 
-        self.instance_id = random.randint(0, 999999)
+        self.instance_id = random.randint(0, 999999999)
 
-        # {"key": "lot_name"}
-        self.delivery_tests = {}
+        self.delivery_tests = {}  # Одноразовые ключи для тестов авто-выдачи. {"ключ": "название лота"}
 
         # Конфиги
         self.MAIN_CFG = main_config
@@ -78,19 +76,13 @@ class Cardinal(object):
         self.proxy = {}
         if self.MAIN_CFG["Proxy"].getboolean("enable"):
             if self.MAIN_CFG["Proxy"]["ip"] and self.MAIN_CFG["Proxy"]["port"].isnumeric():
-                logger.info("Обнаружен прокси в основном конфиге.")
+                logger.info("Обнаружен прокси.")
 
                 ip, port = self.MAIN_CFG["Proxy"]["ip"], self.MAIN_CFG["Proxy"]["port"]
+                login, password = self.MAIN_CFG["Proxy"]["login"], self.MAIN_CFG["Proxy"]["password"]
                 self.proxy = {
-                    "https": f"http://{ip}:{port}"
+                    "https": f"http://{f'{login}:{password}@' if login and password else ''}{ip}:{port}"
                 }
-
-                if self.MAIN_CFG["Proxy"]["login"] and self.MAIN_CFG["Proxy"]["password"]:
-                    login, password = self.MAIN_CFG["Proxy"]["login"], self.MAIN_CFG["Proxy"]["password"]
-                    self.proxy = {
-                        "https": f"http://{login}:{password}@{ip}:{port}"
-                    }
-
                 if self.MAIN_CFG["Proxy"].getboolean("check"):
                     if not check_proxy(self.proxy):
                         sys.exit()
@@ -105,17 +97,17 @@ class Cardinal(object):
         self.run_id = 0
         self.start_time = 0
 
-        # В данном свойстве хранятся интервалы до следующего поднятия категорий игры.
-        # формат хранения: {id игры: следующее время поднятия}
-        self.raise_time = {}
-        self.lots: list[FunPayAPI.types.Lot] = []
-        self.categories: list[FunPayAPI.types.Category] = []
-        self.telegram_lots: list[FunPayAPI.types.Lot] = []  # Для Telegram-ПУ.
-        self.last_telegram_lots_update = datetime.datetime.now()
-        self.current_lots: list[FunPayAPI.types.Lot] = []  # Для хэндлеров (авто-восстановление, авто-деактивация)
+        self.raise_time = {}  # Временные метки поднятия категорий {id игры: след. время поднятия}
+        self.lots: list[FunPayAPI.types.Lot] = []  # Список лотов (при запуске FPC) (для восстановления / деактивации)
+        self.categories: list[FunPayAPI.types.Category] = []  # Список категорий (при запуске FPC)
+        self.telegram_lots: list[FunPayAPI.types.Lot] = []  # Список лотов (для Telegram-ПУ)
+        self.last_telegram_lots_update = datetime.datetime.now()  # Последнее время обновления списка лотов для TG-ПУ
+        self.current_lots: list[FunPayAPI.types.Lot] = []  # Текущий список лотов (для восстановления / деактивации)
+        # Тег последнего event'а, после которого обновлялся self.current_lots
         self.current_lots_last_tag: str | None = None
+        # Тег последнего event'а, после которого обновлялось состояние лотов.
         self.last_state_change_tag: str | None = None
-        self.block_list: list[str] = []
+        self.block_list: list[str] = [] # ЧС.
 
         # Хэндлеры
         self.pre_init_handlers = []
@@ -172,18 +164,14 @@ class Cardinal(object):
                 break
             except TimeoutError:
                 logger.error("Не удалось загрузить данные об аккаунте: превышен тайм-аут ожидания.")
-                logger.warning("Повторю попытку через 2 секунды...")
-                time.sleep(2)
             except (FunPayAPI.exceptions.StatusCodeIsNot200, FunPayAPI.exceptions.AccountDataNotfound) as e:
                 logger.error(e)
-                logger.warning("Повторю попытку через 2 секунды...")
-                time.sleep(2)
             except:
                 logger.error("Произошла непредвиденная ошибка при получении данных аккаута. "
                              "Подробнее а файле logs/log.log")
                 logger.debug(traceback.format_exc())
-                logger.warning("Повторю попытку через 2 секунды...")
-                time.sleep(2)
+            logger.warning("Повторю попытку через 2 секунды...")
+            time.sleep(2)
 
     def __init_lots_and_categories(self, infinite_polling: bool = True, attempts: int = 0,
                                    update_telegram_lots: bool = True,
@@ -341,7 +329,6 @@ class Cardinal(object):
             except AttributeError:
                 continue
             self.handler_bind_var_names[name].extend(functions)
-
         logger.info(f"Хэндлеры из $YELLOW{plugin.__name__}.py$RESET зарегистрированы.")
 
     def __load_plugins(self) -> None:
@@ -352,7 +339,7 @@ class Cardinal(object):
             logger.warning("Папка с плагинами не обнаружена.")
             return
         plugins = [file for file in os.listdir("plugins") if file.endswith(".py")]
-        if not len(plugins):
+        if not plugins:
             logger.info("Плагины не обнаружены.")
             return
 
@@ -380,6 +367,9 @@ class Cardinal(object):
         next_call = float("inf")
 
         for cat in self.categories:
+            if cat.game_id is None:
+                continue
+
             # Если game_id данной категории уже находится в self.game_ids, но время поднятия категорий
             # данной игры еще не настало - пропускам эту категорию.
             if cat.game_id in self.raise_time and self.raise_time[cat.game_id] > int(time.time()):
@@ -477,37 +467,33 @@ class Cardinal(object):
                 return False
         return True
 
-    def update_session(self):
+    def update_session(self, attempts: int = 3) -> bool:
         """
         Обновляет данные аккаунта (баланс, токены и т.д.)
+
+        :param attempts: кол-во попыток.
+
+        :return: True, если удалось обновить данные, False - если нет.
         """
-        attempts = 3
         while attempts:
             try:
                 self.account.get(update_session_id=True)
                 logger.info("Данные аккаунта обновлены.")
                 return True
             except TimeoutError:
-                attempts -= 1
                 logger.warning("Не удалось загрузить данные об аккаунте: превышен тайм-аут ожидания.")
-                logger.warning("Повторю попытку через 2 секунды...")
-                time.sleep(2)
-                continue
             except (FunPayAPI.exceptions.StatusCodeIsNot200, FunPayAPI.exceptions.AccountDataNotfound) as e:
-                attempts -= 1
                 logger.error(e)
-                logger.warning("Повторю попытку через 2 секунды...")
-                time.sleep(2)
-                continue
             except:
                 logger.error("Произошла непредвиденная ошибка при получении данных аккаута. "
                              "Подробнее а файле logs/log.log")
                 logger.debug(traceback.format_exc())
-                logger.warning("Повторю попытку через 2 секунды...")
-                time.sleep(2)
-                continue
-        logger.error("Не удалось обновить данные об аккаунте: превышено кол-во попыток.")
-        return False
+            attempts -= 1
+            logger.warning("Повторю попытку через 2 секунды...")
+            time.sleep(2)
+        else:
+            logger.error("Не удалось обновить данные об аккаунте: превышено кол-во попыток.")
+            return False
 
     # Бесконечные циклы
     def process_events(self):
@@ -535,22 +521,18 @@ class Cardinal(object):
         """
         Запускает бесконечный цикл поднятия категорий (если autoRaise в _main.cfg == 1)
         """
+        if not self.categories:
+            logger.info("$CYAN Цикл авто-поднятия не был запущен, т.к. на аккаунте не обнаружен лотов.")
+            return
+
         logger.info("$CYANЦикл авто-поднятия лотов запущен (это не значит, что авто-поднятие лотов включено).")
         while True:
-            if not self.MAIN_CFG["FunPay"].getboolean("autoRaise") or not self.categories:
+            if not self.MAIN_CFG["FunPay"].getboolean("autoRaise"):
                 time.sleep(10)
                 continue
-            try:
-                next_time = self.raise_lots()
-                time.sleep(0.3)
-            except not KeyboardInterrupt:
-                logger.error("При попытке поднять лоты произошла непредвиденная ошибка. Подробнее в файле logs/log.log.")
-                logger.debug(traceback.format_exc())
-                logger.warning("Попробую через 10 секунд.")
-                time.sleep(10)
-                continue
+            next_time = self.raise_lots()
             delay = next_time - int(time.time())
-            if delay < 0:
+            if delay <= 0:
                 continue
             time.sleep(delay)
 
@@ -567,14 +549,14 @@ class Cardinal(object):
 
     # Управление процессом
     def init(self):
+        self.__add_handlers(handlers)
+        self.__load_plugins()
         self.block_list = cardinal_tools.load_block_list()
 
-        if int(self.MAIN_CFG["Telegram"]["enabled"]):
+        if self.MAIN_CFG["Telegram"].getboolean("enabled"):
             self.__init_telegram()
-            self.__add_handlers(auto_response_cp)
-            self.__add_handlers(auto_delivery_cp)
-            self.__add_handlers(config_loader_cp)
-            self.__add_handlers(file_uploader)
+            for module in [auto_response_cp, auto_delivery_cp, config_loader_cp, file_uploader]:
+                self.__add_handlers(module)
 
         self.run_handlers(self.pre_init_handlers, (self, ))
 
@@ -583,10 +565,6 @@ class Cardinal(object):
 
         self.__init_account()
         self.__init_lots_and_categories()
-
-        self.__add_handlers(handlers)
-        self.__load_plugins()
-
         self.run_handlers(self.post_init_handlers, (self, ))
 
     def run(self):
@@ -623,6 +601,7 @@ class Cardinal(object):
         Выполняет функции из списка handlers.
 
         :param handlers_list: Список функций.
+
         :param args: аргументы для функций.
         """
         for func in handlers_list:
@@ -633,6 +612,13 @@ class Cardinal(object):
                 logger.debug(traceback.format_exc())
 
     @staticmethod
-    def save_config(config: configparser.ConfigParser, file_path: str):
+    def save_config(config: configparser.ConfigParser, file_path: str) -> None:
+        """
+        Сохраняет конфиг в указанный файл.
+
+        :param config: объект конфига.
+
+        :param file_path: путь до файла, в который нужно сохранить конфиг.
+        """
         with open(file_path, "w", encoding="utf-8") as f:
             config.write(f)
