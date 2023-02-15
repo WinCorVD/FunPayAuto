@@ -409,7 +409,7 @@ class Cardinal(object):
                 logger.info(f"Все категории, относящиеся к игре с ID {cat.game_id} подняты!")
                 logger.info(f"Попробую еще раз через  {cardinal_tools.time_to_str(result.wait)}.")
                 next_time = int(time.time()) + result.wait
-                self.run_handlers(self.post_lots_raise_handlers, (self, cat.game_id, result))
+            self.run_handlers(self.post_lots_raise_handlers, (self, cat.game_id, result))
 
             self.raise_time[cat.game_id] = next_time
             if next_time < next_call:
