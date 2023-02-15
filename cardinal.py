@@ -376,47 +376,55 @@ class Cardinal(object):
 
         :return: предположительное время, когда нужно снова запустить данную функцию.
         """
-        # Минимальное время до следующего вызова данной функции.
-        min_next_time = -1
+        # Время следующего вызова функции (по умолчанию - бесконечность).
+        next_call = float("inf")
+
         for cat in self.categories:
             # Если game_id данной категории уже находится в self.game_ids, но время поднятия категорий
             # данной игры еще не настало - пропускам эту категорию.
             if cat.game_id in self.raise_time and self.raise_time[cat.game_id] > int(time.time()):
-                if min_next_time == -1 or self.raise_time[cat.game_id] < min_next_time:
-                    min_next_time = self.raise_time[cat.game_id]
+                # Если записанное в self.game_ids время меньше текущего next_call'а
+                # обновляем время next_call'a на записанное время.
+                if self.raise_time[cat.game_id] < next_call:
+                    next_call = self.raise_time[cat.game_id]
                 continue
 
             # В любом другом случае пытаемся поднять лоты всех категорий, относящихся к игре cat.game_id
             try:
-                response = self.account.raise_game_categories(cat)
-            except:
-                logger.error(f"Произошла непредвиденная ошибка при попытке поднять категорию \"{cat.title}. "
-                             f"Подробнее в файле logs/log.log. (следующая попытка для данной категории через 10 секунд.)")
-                logger.debug(traceback.format_exc())
-                next_time = int(time.time()) + 10
-                if min_next_time == -1 or next_time < min_next_time:
-                    min_next_time = next_time
+                time.sleep(0.5)
+                result = self.account.raise_game_categories(cat)
+            except Exception as e:
+                if isinstance(e, FunPayAPI.exceptions.StatusCodeIsNot200) and e.status_code == 429:
+                    logger.warning(f"Ошибка 429 при поднятии категории \"{cat.title}\". Пауза на 10 сек...")
+                    time.sleep(10)
+                    next_time = int(time.time()) + 1
+                else:
+                    logger.error(f"Произошла непредвиденная ошибка при попытке поднять категорию \"{cat.title}. "
+                                 f"Подробнее в файле logs/log.log. "
+                                 f"(следующая попытка для данной категории через 10 секунд.)")
+                    logger.debug(traceback.format_exc())
+                    next_time = int(time.time()) + 10
+                if next_time < next_call:
+                    next_call = next_time
                 continue
-            if not response.complete:
+
+            if not result.complete:
                 logger.warning(f"Не удалось поднять категорию \"{cat.title}\". "
-                               f"FunPay говорит подождать еще {cardinal_tools.time_to_str(response.wait)}.")
-                logger.debug(f"Ответ FunPay: {response.funpay_response}")
-                # logger.warning(f"Попробую еще раз через {cardinal_tools.time_to_str(response.wait)}.")
-                next_time = int(time.time()) + response.wait
-                self.raise_time[cat.game_id] = next_time
-                if min_next_time == -1 or next_time < min_next_time:
-                    min_next_time = next_time
+                               f"FunPay говорит подождать еще {cardinal_tools.time_to_str(result.wait)}.")
+                logger.debug(f"Ответ FunPay: {result.funpay_response}")
+                next_time = int(time.time()) + result.wait
             else:
-                for category_name in response.raised_category_names:
+                for category_name in result.raised_category_names:
                     logger.info(f"Поднял категорию \"{category_name}\". ")
                 logger.info(f"Все категории, относящиеся к игре с ID {cat.game_id} подняты!")
-                logger.info(f"Попробую еще раз через  {cardinal_tools.time_to_str(response.wait)}.")
-                next_time = int(time.time()) + response.wait
-                self.raise_time[cat.game_id] = next_time
-                if min_next_time == -1 or next_time < min_next_time:
-                    min_next_time = next_time
-                self.run_handlers(self.post_lots_raise_handlers, (self, cat.game_id, response))
-        return min_next_time
+                logger.info(f"Попробую еще раз через  {cardinal_tools.time_to_str(result.wait)}.")
+                next_time = int(time.time()) + result.wait
+                self.run_handlers(self.post_lots_raise_handlers, (self, cat.game_id, result))
+
+            self.raise_time[cat.game_id] = next_time
+            if next_time < next_call:
+                next_call = next_time
+        return next_call
 
     def send_message(self, msg: FunPayAPI.types.Message, attempts: int = 3) -> bool:
         """
@@ -428,16 +436,13 @@ class Cardinal(object):
 
         :return: True, если сообщение доставлено, False, если нет.
         """
-        if self.MAIN_CFG["Other"]["watermark"]:
+        if self.MAIN_CFG["Other"].get("watermark"):
             msg.text = f"{self.MAIN_CFG['Other']['watermark']}\n" + msg.text
 
-        lines = msg.text.split("\n")
-        lines = [i.strip() for i in lines]
+        lines = [i.strip() for i in msg.text.split("\n")]
         msg.text = "\n".join(lines)
-
         while "\n\n" in msg.text:
             msg.text = msg.text.replace("\n\n", "\n[a][/a]\n")
-
         lines = msg.text.split("\n")
 
         split_messages = []
@@ -449,31 +454,24 @@ class Cardinal(object):
             split_messages.append(msg_obj)
             lines = lines[20:]
 
-        for i in split_messages:
-            while attempts:
+        for mes in split_messages:
+            current_attempts = attempts
+            while current_attempts:
                 try:
-                    response = self.account.send_message(i)
+                    response = self.account.send_message(mes)
                     if response.get("response") and response.get("response").get("error") is None:
-                        self.runner.update_saved_message(i)
+                        self.runner.update_saved_message(mes)
                         logger.info(f"Отправил сообщение в чат $YELLOW{msg.node_id}.")
                         break
-                    else:
-                        logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET "
-                                       f"Подробнее в файле logs/log.log")
-                        logger.info(f"Осталось попыток: {attempts}.")
-                        attempts -= 1
-                        time.sleep(1)
-                        continue
                 except:
-                    logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET "
-                                   f"Подробнее в файле logs/log.log")
                     logger.debug(traceback.format_exc())
-                    logger.info(f"Осталось попыток: {attempts}.")
-                    attempts -= 1
-                    time.sleep(1)
-                    continue
-
-            if not attempts:
+                # if error in response
+                logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET "
+                               f"Подробнее в файле logs/log.log")
+                logger.info(f"Осталось попыток: {current_attempts}.")
+                current_attempts -= 1
+                time.sleep(1)
+            else:
                 logger.error(f"Не удалось отправить сообщение в чат $YELLOW{msg.node_id}$RESET: "
                              f"превышено кол-во попыток.")
                 return False
