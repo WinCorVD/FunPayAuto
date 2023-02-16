@@ -45,6 +45,50 @@ class EventTypes(Enum):
     ORDER_STATUS_CHANGED = 6
 
 
+class SystemMessageTypes(Enum):
+    NO_SYSTEM = 0
+    """Не системное сообщение."""
+
+    ORDER_PURCHASED = 1
+    """Покупатель [buyer] оплатил заказ #[order_id]. [lot_name]. [buyer], не забудьте потом нажать кнопку «Подтвердить выполнение заказа»."""
+
+    ORDER_CONFIRMED = 2
+    """Покупатель [buyer] подтвердил успешное выполнение заказа #[order_id] и отправил деньги продавцу [seller]."""
+
+    NEW_FEEDBACK = 3
+    """Покупатель [buyer] написал отзыв к заказу #[order_id]."""
+
+    FEEDBACK_CHANGED = 4
+    """Покупатель [buyer] изменил отзыв к заказу #[order_id]."""
+
+    FEEDBACK_DELETED = 5
+    """Покупатель [buyer] удалил отзыв к заказу #[order_id]."""
+
+    NEW_FEEDBACK_ANSWER = 6
+    """Продавец [seller] ответил на отзыв к заказу #[order_id]."""
+
+    REVIEW_FEEDBACK_CHANGED = 7
+    """Продавец [seller] изменил ответ на отзыв к заказу #[order_id]."""
+
+    REVIEW_FEEDBACK_DELETED = 8
+    """Продавец [seller] удалил ответ на отзыв к заказу #[order_id]."""
+
+    ORDER_REOPENED = 9
+    """Заказ #[order_id] открыт повторно."""
+
+    REFUND = 10
+    """Продавец [seller] вернул деньги покупателю [buyer] по заказу #[order_id]."""
+
+    PARTIAL_REFUND = 11
+    """Часть средств по заказу #[order_id] возвращена покупателю."""
+
+    ORDER_CONFIRMED_BY_ADMIN = 12
+    """Администратор [admin] подтвердил успешное выполнение заказа #[order_id] и отправил деньги продавцу [seller]."""
+
+    DISCORD = 13
+    """Вы можете перейти в Discord. Внимание: общение за пределами сервера FunPay считается нарушением правил."""
+
+
 class CategoryTypes(Enum):
     """
     Типы категорий FunPay.
