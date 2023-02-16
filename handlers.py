@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from FunPayAPI.types import NewMessageEvent, NewOrderEvent, OrdersListChangedEvent, RaiseResponse, Message, Order
+from FunPayAPI.types import (SystemMessageTypes, NewMessageEvent, NewOrderEvent, OrdersListChangedEvent,
+                             RaiseResponse, Message, Order)
 import FunPayAPI.users
 
 from Utils import cardinal_tools
@@ -102,14 +103,12 @@ def send_new_message_notification_handler(cardinal: Cardinal, event: NewMessageE
         return
     if event.message.chat_with in cardinal.block_list and int(cardinal.MAIN_CFG["BlockList"]["blockNewMessageNotification"]):
         return
+    if event.message.sys_type is not None and event.message.sys_type != SystemMessageTypes.NON_SYSTEM:
+        return
     if event.message.text.strip().lower() in cardinal.AR_CFG.sections():
         return
     if event.message.text.startswith("!автовыдача"):
         return
-    if any(i in event.message.text for i in ["Покупатель", "Продавец"]):
-        if any(i in event.message.text for i in ["вернул деньги", "оплатил заказ", "написал отзыв",
-                                                 "подтвердил успешное выполнение заказа"]):
-            return
 
     text = f"""Сообщение в переписке <a href="https://funpay.com/chat/?node={event.message.node_id}">{event.message.chat_with}</a>.
 
