@@ -21,31 +21,33 @@ class Links:
 class EventTypes(Enum):
     """
     Типы событий.
-
-    EventTypes.INITIAL_MESSAGE - обнаружено новое сообщение (при первом запросе Runner'а).
-
-    EventTypes.MESSAGES_LIST_CHANGED - список чатов и/или содержимое одного/нескольких чатов изменилось.
-
-    EventTypes.NEW_MESSAGE - в чате обнаружено новое сообщение.
-
-    EventTypes.INITIAL_ORDER - обнаружен новый заказ (при первом запросе Runner'а).
-
-    EventTypes.ORDERS_LIST_CHANGED - список заказов и/или статус одного/нескольких заказов изменился.
-
-    EventTypes.NEW_ORDER - в списке заказов обнаружен новый заказ.
-
-    EventTypes.ORDER_STATUS_CHANGED - статус заказа изменился.
     """
     INITIAL_MESSAGE = 0
+    """Обнаружено новое сообщение (при первом запросе Runner'а)."""
+
     MESSAGES_LIST_CHANGED = 1
+    """Список чатов и/или содержимое одного/нескольких чатов изменилось."""
+
     NEW_MESSAGE = 2
+    """В чате обнаружено новое сообщение."""
+
     INITIAL_ORDER = 3
+    """Обнаружен новый заказ (при первом запросе Runner'а)."""
+
     ORDERS_LIST_CHANGED = 4
+    """Список заказов и/или статус одного/нескольких заказов изменился."""
+
     NEW_ORDER = 5
+    """В списке заказов обнаружен новый заказ."""
+
     ORDER_STATUS_CHANGED = 6
+    """Статус заказа изменился."""
 
 
 class SystemMessageTypes(Enum):
+    """
+    Типы системных сообщений.
+    """
     NO_SYSTEM = 0
     """Не системное сообщение."""
 
@@ -92,28 +94,26 @@ class SystemMessageTypes(Enum):
 class CategoryTypes(Enum):
     """
     Типы категорий FunPay.
-
-    CategoryTypes.LOT - стандартный лот.
-
-    CategoryTypes.CURRENCY - лот с игровой валютой (их нельзя поднимать).
     """
     LOT = 0
+    """Стандартный лот."""
+
     CURRENCY = 1
+    """лот с игровой валютой (их нельзя поднимать)."""
 
 
 class OrderStatuses(Enum):
     """
-    Состояния ордеров.
-
-    OrderStatuses.OUTSTANDING - ожидает выполнения.
-
-    OrderStatuses.COMPLETED - выполнен.
-
-    OrderStatuses.REFUND - запрошен возврат средств.
+    Состояния заказов.
     """
     OUTSTANDING = 0
+    """Заказ ожидает выполнения."""
+
     COMPLETED = 1
+    """Заказ выполнен."""
+
     REFUND = 2
+    """Запрошен возврат средств."""
 
 
 class Order:
