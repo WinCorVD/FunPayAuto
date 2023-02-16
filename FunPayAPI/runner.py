@@ -106,7 +106,7 @@ class Runner:
                             continue
 
                     chat_with = msg.find("div", {"class": "media-user-name"}).text
-                    message_obj = types.Message(message_text, node_id, chat_with, unread)
+                    message_obj = types.Message(message_text, node_id, chat_with, unread, True)
                     if self.first_request:
                         event = types.InitialMessageEvent(message_obj, self.last_message_event_tag)
                     else:

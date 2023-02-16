@@ -1,9 +1,11 @@
 """
 В данном модуле описаны все типы пакета FunPayAPI.
 """
+from __future__ import annotations
 
 from enum import Enum
 import time
+import re
 
 
 class Links:
@@ -48,7 +50,7 @@ class SystemMessageTypes(Enum):
     """
     Типы системных сообщений.
     """
-    NO_SYSTEM = 0
+    NON_SYSTEM = 0
     """Не системное сообщение."""
 
     ORDER_PURCHASED = 1
@@ -69,10 +71,10 @@ class SystemMessageTypes(Enum):
     NEW_FEEDBACK_ANSWER = 6
     """Продавец [seller] ответил на отзыв к заказу #[order_id]."""
 
-    REVIEW_FEEDBACK_CHANGED = 7
+    FEEDBACK_ANSWER_CHANGED = 7
     """Продавец [seller] изменил ответ на отзыв к заказу #[order_id]."""
 
-    REVIEW_FEEDBACK_DELETED = 8
+    FEEDBACK_ANSWER_DELETED = 8
     """Продавец [seller] удалил ответ на отзыв к заказу #[order_id]."""
 
     ORDER_REOPENED = 9
@@ -89,6 +91,51 @@ class SystemMessageTypes(Enum):
 
     DISCORD = 13
     """Вы можете перейти в Discord. Внимание: общение за пределами сервера FunPay считается нарушением правил."""
+
+
+class SystemMessageRes(object):
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, "instance"):
+            cls.instance = super(SystemMessageRes, cls).__new__(cls)
+        return getattr(cls, "instance")
+
+    def __init__(self):
+        self.ORDER_PURCHASED_RE_1 = re.compile(r"Покупатель [a-zA-Z0-9]+ оплатил заказ #[A-Z0-9]{8}\.")
+
+        self.ORDER_PURCHASED_RE_2 = re.compile(r"[a-zA-Z0-9]+, не забудьте потом нажать кнопку "
+                                               r"«Подтвердить выполнение заказа»\.")
+
+        self.ORDER_CONFIRMED_RE = re.compile(r"Покупатель [a-zA-Z0-9]+ подтвердил успешное выполнение "
+                                             r"заказа #[A-Z0-9]{8} и отправил деньги продавцу [a-zA-Z0-9]+\.")
+
+        self.NEW_FEEDBACK_RE = re.compile(r"Покупатель [a-zA-Z0-9]+ написал отзыв к заказу #[A-Z0-9]{8}\.")
+
+        self.FEEDBACK_CHANGED_RE = re.compile(r"Покупатель [a-zA-Z0-9]+ изменил отзыв к заказу #[A-Z0-9]{8}\.")
+
+        self.FEEDBACK_DELETED_RE = re.compile(r"Покупатель [a-zA-Z0-9]+ удалил отзыв к заказу #[A-Z0-9]{8}\.")
+
+        self.NEW_FEEDBACK_ANSWER_RE = re.compile(r"Продавец [a-zA-Z0-9]+ ответил на отзыв к заказу #[A-Z0-9]{8}\.")
+
+        self.FEEDBACK_ANSWER_CHANGED_RE = re.compile(r"Продавец [a-zA-Z0-9]+ изменил ответ на отзыв к "
+                                                     r"заказу #[A-Z0-9]{8}\.")
+
+        self.FEEDBACK_ANSWER_DELETED_RE = re.compile(r"Продавец [a-zA-Z0-9]+ удалил ответ на отзыв к заказу "
+                                                     r"#[A-Z0-9]{8}\.")
+
+        self.ORDER_REOPENED_RE = re.compile(r"Заказ #[A-Z0-9]{8} открыт повторно\.")
+
+        self.REFUND_RE = re.compile(r"Продавец [a-zA-Z0-9]+ вернул деньги покупателю [a-zA-Z0-9]+ "
+                                    r"по заказу #[A-Z0-9]{8}\.")
+
+        self.PARTIAL_REFUND_RE = re.compile(r"Часть средств по заказу #[A-Z0-9]{8} возвращена покупателю\.")
+
+        self.ORDER_CONFIRMED_BY_ADMIN_RE = re.compile(r"Администратор [a-zA-Z0-9]+ подтвердил успешное выполнение "
+                                                      r"заказа #[A-Z0-9]{8} и отправил деньги продавцу [a-zA-Z0-9]+\.")
+
+        self.DISCORD = "Вы можете перейти в Discord. " \
+                       "Внимание: общение за пределами сервера FunPay считается нарушением правил."
+
+        self.ORDER_ID_RE = re.compile(r"#[A-Z0-9]{8}")
 
 
 class CategoryTypes(Enum):
@@ -155,7 +202,8 @@ class Message:
     """
     Класс, хранящий информацию о сообщении.
     """
-    def __init__(self, text: str, node_id: int, chat_with: str | None, unread: bool = False):
+    def __init__(self, text: str, node_id: int, chat_with: str | None, unread: bool = False,
+                 set_sys_type: bool = False):
         """
         :param text: текст сообщения.
 
@@ -164,11 +212,49 @@ class Message:
         :param chat_with: никнейм пользователя, из чата с которым получено сообщение.
 
         :param unread: установлен ли флаг "unread" у чата, в котором получено сообщение (на момент получения сообщения)
+
+        :param set_sys_type: устанавливать ли тип системного сообщения (не нужно, если сообщение отправляется ботом)
         """
-        self.node_id = node_id
-        self.text = text
-        self.chat_with = chat_with
-        self.unread = unread
+        self.node_id: int = node_id
+        self.text: str = text
+        self.chat_with: str = chat_with
+        self.unread: bool = unread
+        self.sys_type: SystemMessageTypes | None = self.get_system_type() if set_sys_type else None
+
+    def get_system_type(self) -> SystemMessageTypes:
+        """
+        Определяет тип системного сообщения.
+        """
+        res = SystemMessageRes()
+        if self.text == res.DISCORD:
+            return SystemMessageTypes.DISCORD
+
+        if res.ORDER_PURCHASED_RE_1.findall(self.text) and res.ORDER_PURCHASED_RE_2.findall(self.text):
+            return SystemMessageTypes.ORDER_PURCHASED
+
+        if res.ORDER_ID_RE.search(self.text) is None:
+            return SystemMessageTypes.NON_SYSTEM
+
+        # регулярки выставлены в порядке от самых часто-используемых до самых редко-используемых
+        sys_msg_types = {
+            SystemMessageTypes.ORDER_CONFIRMED: res.ORDER_CONFIRMED_RE,
+            SystemMessageTypes.NEW_FEEDBACK: res.NEW_FEEDBACK_RE,
+            SystemMessageTypes.NEW_FEEDBACK_ANSWER: res.NEW_FEEDBACK_ANSWER_RE,
+            SystemMessageTypes.FEEDBACK_CHANGED: res.FEEDBACK_CHANGED_RE,
+            SystemMessageTypes.FEEDBACK_DELETED: res.FEEDBACK_DELETED_RE,
+            SystemMessageTypes.REFUND: res.REFUND_RE,
+            SystemMessageTypes.FEEDBACK_ANSWER_CHANGED: res.FEEDBACK_ANSWER_CHANGED_RE,
+            SystemMessageTypes.FEEDBACK_ANSWER_DELETED: res.FEEDBACK_ANSWER_DELETED_RE,
+            SystemMessageTypes.ORDER_CONFIRMED_BY_ADMIN: res.ORDER_CONFIRMED_BY_ADMIN_RE,
+            SystemMessageTypes.PARTIAL_REFUND: res.PARTIAL_REFUND_RE,
+            SystemMessageTypes.ORDER_REOPENED: res.ORDER_REOPENED_RE
+        }
+
+        for i in sys_msg_types:
+            if sys_msg_types[i].search(self.text):
+                return i
+        else:
+            return SystemMessageTypes.NON_SYSTEM
 
 
 class Lot:
