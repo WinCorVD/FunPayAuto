@@ -33,7 +33,14 @@ def init_templates_cp(cardinal: Cardinal, *args):
         bot.answer_callback_query(c.id)
 
     def open_templates_list_in_ans_mode(c: types.CallbackQuery):
-        pass
+        """
+        Открывает список существующих шаблонов ответов (answer_mode).
+        """
+        split = c.data.split(":")
+        offset, node_id, username = int(split[1]), int(split[2]), split[3]
+        bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                      reply_markup=keyboards.templates_list(cardinal, offset, True, username, node_id))
+        bot.answer_callback_query(c.id)
 
     def act_add_template(c: types.CallbackQuery):
         """
@@ -77,6 +84,7 @@ def init_templates_cp(cardinal: Cardinal, *args):
         pass
 
     tg.cbq_handler(open_templates_list, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST}:"))
+    tg.cbq_handler(open_templates_list_in_ans_mode, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST_ANS_MODE}:"))
     tg.cbq_handler(act_add_template, lambda c: c.data == CBT.ADD_TMPLT)
     tg.msg_handler(add_template, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_TMPLT))
 
