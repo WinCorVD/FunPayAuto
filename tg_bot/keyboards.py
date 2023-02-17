@@ -79,6 +79,7 @@ def settings_sections() -> types.InlineKeyboardMarkup:
         .add(Button("🤖 Настройки авто-ответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
         .add(Button("📦 Настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("🚫 Настройки черного списка",  callback_data=f"{CBT.CATEGORY}:blockList"))\
+        .add(Button("📝 Заготовки ответов", callback_data=f"{CBT.TMPLT_LIST}:0"))\
         .add(Button("📁 Управление конфиг-файлами", callback_data="config_loader"))
     return keyboard
 
@@ -460,7 +461,8 @@ def reply(node_id: int, username: str) -> types.InlineKeyboardMarkup:
     :return: экземпляр кнопки (клавиатуры).
     """
     keyboard = types.InlineKeyboardMarkup()\
-        .add(Button(text="📨 Ответить", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
+        .row(Button(text="📨 Ответить", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"),
+             Button(text="📝 Заготовки", callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:0:{node_id}:{username}"))
     return keyboard
 
 
