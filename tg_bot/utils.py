@@ -64,15 +64,26 @@ def load_notifications_settings() -> dict:
         return json.loads(f.read())
 
 
+def load_answer_templates() -> dict:
+    """
+    Загружает шаблоны ответов из кэша.
+
+    :return: шаблоны ответов из кэша.
+    """
+    if not os.path.exists("storage/cache/answer_templates.json"):
+        return {}
+    with open("storage/cache/answer_templates.json", "r", encoding="utf-8") as f:
+        return json.loads(f.read())
+
+
 def save_authorized_users(users: list[int]) -> None:
     """
-    Сохраняет ID авторизированных пользователей в кэш.
+    Сохраняет ID авторизированных пользователей.
 
     :param users: список id авторизированных пользователей.
     """
     if not os.path.exists("storage/cache/"):
         os.makedirs("storage/cache/")
-
     with open("storage/cache/tg_authorized_users.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(users))
 
@@ -87,6 +98,18 @@ def save_notifications_settings(settings: dict) -> None:
         os.makedirs("storage/cache/")
     with open("storage/cache/notifications_settings.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(settings))
+
+
+def save_answer_templates(templates: list[str]) -> None:
+    """
+    Сохраняет шаблоны ответов.
+
+    :param templates: список шаблонов.
+    """
+    if not os.path.exists("storage/cache/"):
+        os.makedirs("storage/cache")
+    with open("storage/cache/answer_templates.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(templates))
 
 
 def escape(text: str) -> str:
