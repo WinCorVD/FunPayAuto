@@ -492,7 +492,7 @@ def templates_list(cardinal: Cardinal, offset: int,
 
     if not answer_mode:
         for index, tmplt in enumerate(templates):
-            keyboard.add(Button(tmplt, callback_data=f"{CBT.EDIT_CMD}:{offset + index}:{offset}"))
+            keyboard.add(Button(tmplt, callback_data=f"{CBT.EDIT_TMPLT}:{offset + index}:{offset}"))
     else:
         for index, tmplt in enumerate(templates):
             keyboard.add(Button(tmplt.replace("$username", username),
@@ -517,7 +517,7 @@ def templates_list(cardinal: Cardinal, offset: int,
 
     keyboard.row(*navigation_buttons)
     if not answer_mode:
-        keyboard.add(Button("➕ Добавить шаблон", callback_data=CBT.ADD_TMPLT))\
+        keyboard.add(Button("➕ Добавить заготовку", callback_data=CBT.ADD_TMPLT))\
                 .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     else:
         keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
