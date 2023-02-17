@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from configparser import ConfigParser
 
-from tg_bot import auto_response_cp, config_loader_cp, auto_delivery_cp, file_uploader
+from tg_bot import auto_response_cp, config_loader_cp, auto_delivery_cp, templates_cp, file_uploader
 import importlib.util
 import configparser
 import traceback
@@ -555,7 +555,7 @@ class Cardinal(object):
 
         if self.MAIN_CFG["Telegram"].getboolean("enabled"):
             self.__init_telegram()
-            for module in [auto_response_cp, auto_delivery_cp, config_loader_cp, file_uploader]:
+            for module in [auto_response_cp, auto_delivery_cp, config_loader_cp, templates_cp, file_uploader]:
                 self.__add_handlers(module)
 
         self.run_handlers(self.pre_init_handlers, (self, ))
