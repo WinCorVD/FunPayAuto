@@ -278,6 +278,55 @@ config: str - тип конфига.
 """
 
 
+# Шаблоны ответов
+TMPLT_LIST = "templates_list"
+"""
+Callback для открытия списка шаблонов ответа.
+Использование: CBT.TMPLT_LIST:offset
+
+offset: int - смещение списка шаблонов ответа.
+"""
+
+
+EDIT_TMPLT = "edit_template"
+"""
+Callback для открытия меню изменения шаблона ответа.
+Использование: CBT.EDIT_TMPLT:template_index:offset
+
+template_index: int - числовой индекс шаблона ответа.
+offset: int - смещение списка шаблонов ответа.
+"""
+
+
+DEL_TMPLT = "delete_template"
+"""
+Callback для удаления шаблона ответа.
+Использование: CBT.DEL_TMPLT:template_index:offset
+
+template_index: int - числовой индекс шаблона ответа.
+offset: int - смещение списка шаблонов ответа.
+"""
+
+
+ADD_TMPLT = "add_template"
+"""
+Callback для активации режима ввода текста нового шаблона ответа.
+
+
+User-state: ожидается сообщение с текстом нового шаблона ответа.
+"""
+
+SEND_TMPLT = "send_tmplt"
+"""
+Callback для отправки шаблона в ЛС FunPay.
+Использование: CBT.SEND_TMPLT:node_id:username:index
+
+node_id: int - ID переписки, в которую нужно отправить шаблон.
+username: str - имя пользователя, с которым ведется переписка.
+index: int - числовой индекс шаблона.
+"""
+
+
 # Прочее
 SWITCH_TG_NOTIFICATIONS = "switch_tg_notification"
 """
