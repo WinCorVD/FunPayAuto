@@ -58,6 +58,8 @@ class TGBot:
         #
         self.notification_settings = utils.load_notifications_settings()
 
+        self.answer_templates = utils.load_answer_templates()
+
         self.commands = {
             "FunPayCardinal": {
                 "menu": "открыть панель настроек",

@@ -222,18 +222,10 @@ def commands_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup
         #  CBT.EDIT_CMD:номер команды:оффсет (для кнопки назад)
         keyboard.add(Button(cmd, callback_data=f"{CBT.EDIT_CMD}:{offset + index}:{offset}"))
 
-    navigation_buttons = []
-    if offset > 0:
-        back_offset = offset-MENU_CFG.AR_BTNS_COUNT if offset > MENU_CFG.AR_BTNS_COUNT else 0
-        back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.CMD_LIST}:{back_offset}")
-        navigation_buttons.append(back_button)
-    if offset + len(commands) < len(cardinal.RAW_AR_CFG.sections()):
-        forward_offset = offset + len(commands)
-        forward_button = Button("След. страница ▶️", callback_data=f"{CBT.CMD_LIST}:{forward_offset}")
-        navigation_buttons.append(forward_button)
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AR_BTNS_COUNT, len(commands),
+                                            len(cardinal.RAW_AR_CFG.sections()), CBT.CMD_LIST)
 
-    keyboard.row(*navigation_buttons)\
-        .add(Button("🤖 В настройки авто-ответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
+    keyboard.add(Button("🤖 В настройки авто-ответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
@@ -283,18 +275,10 @@ def products_files_list(offset: int) -> types.InlineKeyboardMarkup:
     for index, name in enumerate(files):
         keyboard.add(Button(name, callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{offset + index}:{offset}"))
 
-    navigation_buttons = []
-    if offset > 0:
-        back_offset = offset-MENU_CFG.PF_BTNS_COUNT if offset > MENU_CFG.PF_BTNS_COUNT else 0
-        back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.PRODUCTS_FILES_LIST}:{back_offset}")
-        navigation_buttons.append(back_button)
-    if offset + len(files) < len(os.listdir("storage/products")):
-        forward_offset = offset + len(files)
-        forward_button = Button("След. страница ▶️", callback_data=f"{CBT.PRODUCTS_FILES_LIST}:{forward_offset}")
-        navigation_buttons.append(forward_button)
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.PF_BTNS_COUNT, len(files),
+                                            len(os.listdir("storage/products")), CBT.PRODUCTS_FILES_LIST)
 
-    keyboard.row(*navigation_buttons)\
-        .add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
+    keyboard.add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
@@ -345,18 +329,10 @@ def lots_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup:
     for index, lot in enumerate(lots):
         keyboard.add(Button(lot, callback_data=f"{CBT.EDIT_AD_LOT}:{offset + index}:{offset}"))
 
-    navigation_buttons = []
-    if offset > 0:
-        back_offset = offset - MENU_CFG.AD_BTNS_COUNT if offset > MENU_CFG.AD_BTNS_COUNT else 0
-        back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.AD_LOTS_LIST}:{back_offset}")
-        navigation_buttons.append(back_button)
-    if offset + len(lots) < len(cardinal.AD_CFG.sections()):
-        forward_offset = offset + len(lots)
-        forward_button = Button("След. страница ▶️", callback_data=f"{CBT.AD_LOTS_LIST}:{forward_offset}")
-        navigation_buttons.append(forward_button)
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AD_BTNS_COUNT, len(lots),
+                                            len(cardinal.AD_CFG.sections()), CBT.AD_LOTS_LIST)
 
-    keyboard.row(*navigation_buttons)\
-        .add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery")) \
+    keyboard.add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery")) \
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
@@ -374,19 +350,11 @@ def funpay_lots_list(cardinal: Cardinal, offset: int):
     for index, lot in enumerate(lots):
         keyboard.add(Button(lot.title, callback_data=f"{CBT.ADD_AD_TO_LOT}:{offset + index}:{offset}"))
 
-    navigation_buttons = []
-    if offset > 0:
-        back_offset = offset - MENU_CFG.FP_LOTS_BTNS_COUNT if offset > MENU_CFG.FP_LOTS_BTNS_COUNT else 0
-        back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.FP_LOTS_LIST}:{back_offset}")
-        navigation_buttons.append(back_button)
-    if offset + len(lots) < len(cardinal.telegram_lots):
-        forward_offset = offset + len(lots)
-        forward_button = Button("След. страница ▶️", callback_data=f"{CBT.FP_LOTS_LIST}:{forward_offset}")
-        navigation_buttons.append(forward_button)
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.FP_LOTS_BTNS_COUNT, len(lots),
+                                            len(cardinal.telegram_lots), CBT.FP_LOTS_LIST)
 
-    keyboard.row(*navigation_buttons)\
-        .row(Button("➕ Ввести вручную", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{offset}"),
-             Button("🔄 Сканировать FunPay", callback_data=f"update_funpay_lots:{offset}"))\
+    keyboard.row(Button("➕ Ввести вручную", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{offset}"),
+                 Button("🔄 Сканировать FunPay", callback_data=f"update_funpay_lots:{offset}"))\
         .add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
@@ -493,4 +461,62 @@ def reply(node_id: int, username: str) -> types.InlineKeyboardMarkup:
     """
     keyboard = types.InlineKeyboardMarkup()\
         .add(Button(text="📨 Ответить", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
+    return keyboard
+
+
+def templates_list(cardinal: Cardinal, offset: int,
+                   answer_mode: bool = False, username: str | None = None, node_id: int | None = None) \
+        -> types.InlineKeyboardMarkup:
+    """
+    Создает клавиатуру со списком шаблонов ответов. (CBT.TMPLT_LIST:<offset>).
+
+    :param cardinal: экземпляр кардинала.
+
+    :param offset: оффсет списка шаблонов.
+
+    :param answer_mode: отправлять ли сообщение, вместо того чтобы открывать меню редактирования?
+
+    :param username: имя пользователя, в чат в которое будет отправляться сообщение (если answer_mode == True).
+
+    :param node_id: ID чата, в которое надо будет отправлять сообщение (если answer_mode == True).
+
+    :return: экземпляр клавиатуры.
+    """
+    keyboard = types.InlineKeyboardMarkup()
+    templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+    if not templates and offset != 0:
+        offset = 0
+        templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+
+    if not answer_mode:
+        for index, tmplt in enumerate(templates):
+            keyboard.add(Button(tmplt, callback_data=f"{CBT.EDIT_CMD}:{offset + index}:{offset}"))
+    else:
+        for index, tmplt in enumerate(templates):
+            keyboard.add(Button(tmplt.replace("$username", username),
+                                callback_data=f"{CBT.SEND_TMPLT}:{index}:{node_id}:{username}"))
+    navigation_buttons = []
+    if offset > 0:
+        back_offset = offset-MENU_CFG.TMPLT_BTNS_COUNT if offset > MENU_CFG.TMPLT_BTNS_COUNT else 0
+        if not answer_mode:
+            back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.TMPLT_LIST}:{back_offset}")
+        else:
+            back_button = Button("◀️ Пред. страница",
+                                 callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:{back_offset}:{node_id}:{username}")
+        navigation_buttons.append(back_button)
+    if offset + len(templates) < len(cardinal.telegram.answer_templates):
+        forward_offset = offset + len(templates)
+        if not answer_mode:
+            forward_button = Button("След. страница ▶️", callback_data=f"{CBT.TMPLT_LIST}:{forward_offset}")
+        else:
+            forward_button = Button("След. страница ▶️",
+                                    callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:{forward_offset}:{node_id}:{username}")
+        navigation_buttons.append(forward_button)
+
+    keyboard.row(*navigation_buttons)
+    if not answer_mode:
+        keyboard.add(Button("➕ Добавить шаблон", callback_data=CBT.ADD_TMPLT))\
+                .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
+    else:
+        keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
     return keyboard

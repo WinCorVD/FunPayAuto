@@ -288,6 +288,17 @@ offset: int - смещение списка шаблонов ответа.
 """
 
 
+TMPLT_LIST_ANS_MODE = "templates_list_ans_mode"
+"""
+Callback для открытия списка шаблонов ответа в режиме ответа.
+Использование: CBT.TMPLT_LIST_ANS_MODE:offset:node_id:username
+
+offset: int - смещение списка шаблонов ответа.
+node_id: int - ID переписки, в которую нужно отправить шаблон.
+username: str - имя пользователя, с которым ведется переписка.
+"""
+
+
 EDIT_TMPLT = "edit_template"
 """
 Callback для открытия меню изменения шаблона ответа.
@@ -319,11 +330,11 @@ User-state: ожидается сообщение с текстом нового
 SEND_TMPLT = "send_tmplt"
 """
 Callback для отправки шаблона в ЛС FunPay.
-Использование: CBT.SEND_TMPLT:node_id:username:index
+Использование: CBT.SEND_TMPLT:index:node_id:username
 
+index: int - числовой индекс шаблона.
 node_id: int - ID переписки, в которую нужно отправить шаблон.
 username: str - имя пользователя, с которым ведется переписка.
-index: int - числовой индекс шаблона.
 """
 
 

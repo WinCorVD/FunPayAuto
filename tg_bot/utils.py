@@ -182,7 +182,6 @@ def add_navigation_buttons(keyboard_obj: InlineKeyboardMarkup, curr_offset: int,
     return keyboard_obj
 
 
-
 def generate_help_text(commands_json: dict) -> str:
     """
     Генерирует текст справки.
