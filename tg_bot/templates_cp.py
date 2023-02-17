@@ -36,10 +36,39 @@ def init_templates_cp(cardinal: Cardinal, *args):
         pass
 
     def act_add_template(c: types.CallbackQuery):
-        pass
+        """
+        Активирует режим добавления нового шаблона ответа.
+        """
+        result = bot.send_message(c.message.chat.id,
+                                  "Введите новый шаблон ответа.\n\nДоступные переменные:\n<code>$username</code> "
+                                  "- <i>никнейм написавшего пользователя.</i>",
+                                  parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
+        tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.ADD_TMPLT)
+        bot.answer_callback_query(c.id)
 
-    def add_template(c: types.CallbackQuery):
-        pass
+    def add_template(m: types.Message):
+        # todo: добавить правильные offset'ы.
+        tg.clear_user_state(m.chat.id, m.from_user.id, True)
+        template = m.text.strip()
+
+        if template in tg.answer_templates:
+            error_keyboard = types.InlineKeyboardMarkup() \
+                .row(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:0"),
+                     Button("➕ Добавить другую", callback_data=CBT.ADD_TMPLT))
+            bot.reply_to(m, f"❌ Такая заготовка уже существует.",
+                         allow_sending_without_reply=True, parse_mode="HTML", reply_markup=error_keyboard)
+            return
+
+        tg.answer_templates.append(template)
+        utils.save_answer_templates(tg.answer_templates)
+
+        keyboard = types.InlineKeyboardMarkup() \
+            .row(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:0"),
+                 Button("➕ Добавить еще", callback_data=CBT.ADD_TMPLT))
+
+        bot.reply_to(m, f"✅ Добавлена заготовка:\n"
+                        f"<code>{utils.escape(template)}</code>.",
+                     allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
     def remove_template(c: types.CallbackQuery):
         pass
@@ -48,6 +77,8 @@ def init_templates_cp(cardinal: Cardinal, *args):
         pass
 
     tg.cbq_handler(open_templates_list, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST}:"))
+    tg.cbq_handler(act_add_template, lambda c: c.data == CBT.ADD_TMPLT)
+    tg.msg_handler(add_template, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_TMPLT))
 
 
 BIND_TO_PRE_INIT = [init_templates_cp]
