@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from FunPayAPI.account import Account
 
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton as Button
 import configparser
 import datetime
 import os.path
@@ -146,6 +147,40 @@ def get_offset(element_index: int, max_elements_on_page: int) -> int:
         return 0
     else:
         return element_index - elements_on_page + 1
+
+
+def add_navigation_buttons(keyboard_obj: InlineKeyboardMarkup, curr_offset: int,
+                           max_buttons_amount: int,
+                           curr_elements_amount: int, elements_amount: int,
+                           callback_text: str) -> InlineKeyboardMarkup:
+    """
+    Добавляет к переданной клавиатуре кнопки след. / пред. страница.
+
+    :param keyboard_obj: экземпляр клавиатуры.
+
+    :param curr_offset: текущее смещение списка.
+
+    :param max_buttons_amount: максимальное кол-во кнопок на 1 странице.
+
+    :param curr_elements_amount: текущее кол-во элементов на странице.
+
+    :param elements_amount: общее кол-во элементов.
+
+    :param callback_text: текст callback'а.
+    """
+    navigation_buttons = []
+    if curr_offset > 0:
+        back_offset = curr_offset - max_buttons_amount if curr_offset > max_buttons_amount else 0
+        back_button = Button("◀️ Пред. страница", callback_data=f"{callback_text}:{back_offset}")
+        navigation_buttons.append(back_button)
+    if curr_offset + curr_elements_amount < elements_amount:
+        forward_offset = curr_offset + curr_elements_amount
+        forward_button = Button("След. страница ▶️", callback_data=f"{callback_text}:{forward_offset}")
+        navigation_buttons.append(forward_button)
+
+    keyboard_obj.row(*navigation_buttons)
+    return keyboard_obj
+
 
 
 def generate_help_text(commands_json: dict) -> str:
