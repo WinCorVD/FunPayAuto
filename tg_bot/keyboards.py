@@ -522,3 +522,21 @@ def templates_list(cardinal: Cardinal, offset: int,
     else:
         keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
     return keyboard
+
+
+def edit_template(cardinal: Cardinal, template_index: int, offset: int) -> types.InlineKeyboardMarkup:
+    """
+    Создает клавиатуру изменения шаблона ответа (CBT.EDIT_TMPLT:<template_index>:<offset>).
+
+    :param cardinal: экземпляр кардинала.
+
+    :param template_index: числовой индекс шаблона ответа.
+
+    :param offset: оффсет списка шаблонов ответа.
+
+    :return: экземпляр клавиатуры.
+    """
+    keyboard = types.InlineKeyboardMarkup()\
+        .add(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:{offset}"))\
+        .add(Button("🗑️ Удалить", callback_data=f"{CBT.DEL_TMPLT}:{template_index}:{offset}"))
+    return keyboard

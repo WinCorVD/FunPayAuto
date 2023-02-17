@@ -22,6 +22,34 @@ def init_templates_cp(cardinal: Cardinal, *args):
     tg = cardinal.telegram
     bot = tg.bot
 
+    def check_template_exists(template_index: int, message_obj: types.Message, reply_mode: bool = True) -> bool:
+        """
+        Проверяет, существует ли команда с переданным индексом.
+        Если команда не существует - отправляет сообщение с кнопкой обновления списка команд.
+
+        :param template_index: индекс шаблона.
+
+        :param message_obj: экземпляр Telegram-сообщения.
+
+        :param reply_mode: режим ответа на переданное сообщение.
+        Если True - отвечает на переданное сообщение,
+        если False - редактирует переданное сообщение.
+
+        :return: True, если команда существует, False, если нет.
+        """
+        if template_index > len(cardinal.telegram.answer_templates) - 1:
+            update_button = types.InlineKeyboardMarkup().add(Button("🔄 Обновить",
+                                                                    callback_data=f"{CBT.TMPLT_LIST}:0"))
+            if reply_mode:
+                bot.reply_to(message_obj, f"❌ Не удалось обнаружить заготовку с индексом <code>{template_index}</code>.",
+                             allow_sending_without_reply=True, parse_mode="HTML", reply_markup=update_button)
+            else:
+                bot.edit_message_text(f"❌ Не удалось обнаружить команду с индексом <code>{template_index}</code>.",
+                                      message_obj.chat.id, message_obj.id,
+                                      parse_mode="HTML", reply_markup=update_button)
+            return False
+        return True
+
     def open_templates_list(c: types.CallbackQuery):
         """
         Открывает список существующих шаблонов ответов.
@@ -40,6 +68,20 @@ def init_templates_cp(cardinal: Cardinal, *args):
         offset, node_id, username = int(split[1]), int(split[2]), split[3]
         bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
                                       reply_markup=keyboards.templates_list(cardinal, offset, True, username, node_id))
+        bot.answer_callback_query(c.id)
+
+    def open_edit_template_cp(c: types.CallbackQuery):
+        split = c.data.split(":")
+        template_index, offset = int(split[1]), int(split[2])
+        if not check_template_exists(template_index, c.message, reply_mode=False):
+            bot.answer_callback_query(c.id)
+            return
+
+        keyboard = keyboards.edit_template(cardinal, template_index, offset)
+        template = cardinal.telegram.answer_templates[template_index]
+
+        message = f"""<code>{utils.escape(template)}</code>"""
+        bot.edit_message_text(message, c.message.chat.id, c.message.id, reply_markup=keyboard, parse_mode="HTML")
         bot.answer_callback_query(c.id)
 
     def act_add_template(c: types.CallbackQuery):
@@ -85,6 +127,7 @@ def init_templates_cp(cardinal: Cardinal, *args):
 
     tg.cbq_handler(open_templates_list, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST}:"))
     tg.cbq_handler(open_templates_list_in_ans_mode, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST_ANS_MODE}:"))
+    tg.cbq_handler(open_edit_template_cp, lambda c: c.data.startswith(f"{CBT.EDIT_TMPLT}:"))
     tg.cbq_handler(act_add_template, lambda c: c.data == CBT.ADD_TMPLT)
     tg.msg_handler(add_template, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_TMPLT))
 
