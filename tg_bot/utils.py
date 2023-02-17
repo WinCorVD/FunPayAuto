@@ -65,14 +65,14 @@ def load_notifications_settings() -> dict:
         return json.loads(f.read())
 
 
-def load_answer_templates() -> dict:
+def load_answer_templates() -> list[str]:
     """
     Загружает шаблоны ответов из кэша.
 
     :return: шаблоны ответов из кэша.
     """
     if not os.path.exists("storage/cache/answer_templates.json"):
-        return {}
+        return []
     with open("storage/cache/answer_templates.json", "r", encoding="utf-8") as f:
         return json.loads(f.read())
 
