@@ -466,8 +466,7 @@ def reply(node_id: int, username: str) -> types.InlineKeyboardMarkup:
     return keyboard
 
 
-def templates_list(cardinal: Cardinal, offset: int,
-                   answer_mode: bool = False, username: str | None = None, node_id: int | None = None) \
+def templates_list(cardinal: Cardinal, offset: int) \
         -> types.InlineKeyboardMarkup:
     """
     Создает клавиатуру со списком шаблонов ответов. (CBT.TMPLT_LIST:<offset>).
@@ -475,12 +474,6 @@ def templates_list(cardinal: Cardinal, offset: int,
     :param cardinal: экземпляр кардинала.
 
     :param offset: оффсет списка шаблонов.
-
-    :param answer_mode: отправлять ли сообщение, вместо того чтобы открывать меню редактирования?
-
-    :param username: имя пользователя, в чат в которое будет отправляться сообщение (если answer_mode == True).
-
-    :param node_id: ID чата, в которое надо будет отправлять сообщение (если answer_mode == True).
 
     :return: экземпляр клавиатуры.
     """
@@ -490,37 +483,13 @@ def templates_list(cardinal: Cardinal, offset: int,
         offset = 0
         templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
 
-    if not answer_mode:
-        for index, tmplt in enumerate(templates):
-            keyboard.add(Button(tmplt, callback_data=f"{CBT.EDIT_TMPLT}:{offset + index}:{offset}"))
-    else:
-        for index, tmplt in enumerate(templates):
-            keyboard.add(Button(tmplt.replace("$username", username),
-                                callback_data=f"{CBT.SEND_TMPLT}:{index}:{node_id}:{username}"))
-    navigation_buttons = []
-    if offset > 0:
-        back_offset = offset-MENU_CFG.TMPLT_BTNS_COUNT if offset > MENU_CFG.TMPLT_BTNS_COUNT else 0
-        if not answer_mode:
-            back_button = Button("◀️ Пред. страница", callback_data=f"{CBT.TMPLT_LIST}:{back_offset}")
-        else:
-            back_button = Button("◀️ Пред. страница",
-                                 callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:{back_offset}:{node_id}:{username}")
-        navigation_buttons.append(back_button)
-    if offset + len(templates) < len(cardinal.telegram.answer_templates):
-        forward_offset = offset + len(templates)
-        if not answer_mode:
-            forward_button = Button("След. страница ▶️", callback_data=f"{CBT.TMPLT_LIST}:{forward_offset}")
-        else:
-            forward_button = Button("След. страница ▶️",
-                                    callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:{forward_offset}:{node_id}:{username}")
-        navigation_buttons.append(forward_button)
+    for index, tmplt in enumerate(templates):
+        keyboard.add(Button(tmplt, callback_data=f"{CBT.EDIT_TMPLT}:{offset + index}:{offset}"))
 
-    keyboard.row(*navigation_buttons)
-    if not answer_mode:
-        keyboard.add(Button("➕ Добавить заготовку", callback_data=CBT.ADD_TMPLT))\
-                .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
-    else:
-        keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.TMPLT_BTNS_COUNT, len(templates),
+                                            len(cardinal.telegram.answer_templates), CBT.TMPLT_LIST)
+    keyboard.add(Button("➕ Добавить заготовку", callback_data=CBT.ADD_TMPLT))\
+            .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
 
