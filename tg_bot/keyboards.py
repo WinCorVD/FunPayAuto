@@ -488,7 +488,7 @@ def templates_list(cardinal: Cardinal, offset: int) \
 
     keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.TMPLT_BTNS_COUNT, len(templates),
                                             len(cardinal.telegram.answer_templates), CBT.TMPLT_LIST)
-    keyboard.add(Button("➕ Добавить заготовку", callback_data=CBT.ADD_TMPLT))\
+    keyboard.add(Button("➕ Добавить заготовку", callback_data=f"{CBT.ADD_TMPLT}:{offset}"))\
             .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 

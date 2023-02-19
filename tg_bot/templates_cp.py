@@ -75,22 +75,23 @@ def init_templates_cp(cardinal: Cardinal, *args):
         """
         Активирует режим добавления нового шаблона ответа.
         """
+        offset = int(c.data.split(":")[1])
         result = bot.send_message(c.message.chat.id,
                                   "Введите новый шаблон ответа.\n\nДоступные переменные:\n<code>$username</code> "
                                   "- <i>никнейм написавшего пользователя.</i>",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
-        tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.ADD_TMPLT)
+        tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.ADD_TMPLT, {"offset": offset})
         bot.answer_callback_query(c.id)
 
     def add_template(m: types.Message):
-        # todo: добавить правильные offset'ы.
+        offset = tg.get_user_state(m.chat.id, m.from_user.id)["data"]["offset"]
         tg.clear_user_state(m.chat.id, m.from_user.id, True)
         template = m.text.strip()
 
         if template in tg.answer_templates:
             error_keyboard = types.InlineKeyboardMarkup() \
-                .row(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:0"),
-                     Button("➕ Добавить другую", callback_data=CBT.ADD_TMPLT))
+                .row(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:{offset}"),
+                     Button("➕ Добавить другую", callback_data=f"{CBT.ADD_TMPLT}:{offset}"))
             bot.reply_to(m, f"❌ Такая заготовка уже существует.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=error_keyboard)
             return
@@ -99,11 +100,10 @@ def init_templates_cp(cardinal: Cardinal, *args):
         utils.save_answer_templates(tg.answer_templates)
 
         keyboard = types.InlineKeyboardMarkup() \
-            .row(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:0"),
-                 Button("➕ Добавить еще", callback_data=CBT.ADD_TMPLT))
+            .row(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:{offset}"),
+                 Button("➕ Добавить еще", callback_data=f"{CBT.ADD_TMPLT}:{offset}"))
 
-        bot.reply_to(m, f"✅ Добавлена заготовка:\n"
-                        f"<code>{utils.escape(template)}</code>.",
+        bot.reply_to(m, f"✅ Добавлена заготовка.",
                      allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
     def del_template(c: types.CallbackQuery):
@@ -126,7 +126,7 @@ def init_templates_cp(cardinal: Cardinal, *args):
     tg.cbq_handler(open_templates_list, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST}:"))
     tg.cbq_handler(open_templates_list_in_ans_mode, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST_ANS_MODE}:"))
     tg.cbq_handler(open_edit_template_cp, lambda c: c.data.startswith(f"{CBT.EDIT_TMPLT}:"))
-    tg.cbq_handler(act_add_template, lambda c: c.data == CBT.ADD_TMPLT)
+    tg.cbq_handler(act_add_template, lambda c: c.data.startswith(f"{CBT.ADD_TMPLT}:"))
     tg.msg_handler(add_template, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_TMPLT))
     tg.cbq_handler(del_template, lambda c: c.data.startswith(f"{CBT.DEL_TMPLT}:"))
 
