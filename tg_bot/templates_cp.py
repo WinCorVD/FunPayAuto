@@ -12,6 +12,7 @@ from tg_bot import utils, keyboards, CBT
 
 from telebot.types import InlineKeyboardButton as Button
 from telebot import types
+import FunPayAPI
 import logging
 
 logger = logging.getLogger("TGBot")
@@ -35,7 +36,7 @@ def init_templates_cp(cardinal: Cardinal, *args):
         if template_index > len(cardinal.telegram.answer_templates) - 1:
             update_button = types.InlineKeyboardMarkup().add(Button("🔄 Обновить",
                                                                     callback_data=f"{CBT.TMPLT_LIST}:0"))
-            bot.edit_message_text(f"❌ Не удалось обнаружить команду с индексом <code>{template_index}</code>.",
+            bot.edit_message_text(f"❌ Не удалось обнаружить заготовку с индексом <code>{template_index}</code>.",
                                   message_obj.chat.id, message_obj.id,
                                   parse_mode="HTML", reply_markup=update_button)
             return False
@@ -126,7 +127,38 @@ def init_templates_cp(cardinal: Cardinal, *args):
         bot.answer_callback_query(c.id)
 
     def send_template(c: types.CallbackQuery):
-        pass
+        split = c.data.split(":")
+        template_index, node_id, username, prev_page, extra = (int(split[1]), int(split[2]), split[3], int(split[4]),
+                                                               split[5:])
+
+        if template_index > len(tg.answer_templates) - 1:
+            bot.send_message(c.message.chat.id,
+                             f"❌ Не удалось обнаружить заготовку с индексом <code>{template_index}</code>.")
+            if prev_page == 0:
+                bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                              reply_markup=keyboards.reply(node_id, username))
+            elif prev_page == 1:
+                bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                              reply_markup=keyboards.reply(node_id, username, True))
+                bot.answer_callback_query(c.id)
+                return
+
+        text = tg.answer_templates[template_index].replace("$username", username)
+        new_msg_obj = FunPayAPI.types.Message(text, node_id, None)
+        result = cardinal.send_message(new_msg_obj)
+        if result:
+            bot.send_message(c.message.chat.id, f'✅ Сообщение отправлено в переписку '
+                                                f'<a href="https://funpay.com/chat/?node={node_id}">{username}</a>.'
+                                                f'\n\n<code>{utils.escape(text)}</code>',
+                             parse_mode="HTML",
+                             reply_markup=keyboards.reply(node_id, username, again=True))
+        else:
+            bot.send_message(c.message.chat.id, f'❌ Не удалось отправить сообщение в переписку '
+                                                f'<a href="https://funpay.com/chat/?node={node_id}">{username}</a>. '
+                                                f'Подробнее в файле <code>logs/log.log</code>',
+                             parse_mode="HTML",
+                             reply_markup=keyboards.reply(node_id, username, again=True))
+        bot.answer_callback_query(c.id)
 
     tg.cbq_handler(open_templates_list, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST}:"))
     tg.cbq_handler(open_templates_list_in_ans_mode, lambda c: c.data.startswith(f"{CBT.TMPLT_LIST_ANS_MODE}:"))
@@ -134,6 +166,7 @@ def init_templates_cp(cardinal: Cardinal, *args):
     tg.cbq_handler(act_add_template, lambda c: c.data.startswith(f"{CBT.ADD_TMPLT}:"))
     tg.msg_handler(add_template, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, CBT.ADD_TMPLT))
     tg.cbq_handler(del_template, lambda c: c.data.startswith(f"{CBT.DEL_TMPLT}:"))
+    tg.cbq_handler(send_template, lambda c: c.data.startswith(f"{CBT.SEND_TMPLT}:"))
 
 
 BIND_TO_PRE_INIT = [init_templates_cp]
