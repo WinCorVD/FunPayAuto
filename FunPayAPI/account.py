@@ -175,6 +175,8 @@ class Account:
             order = types.Order(html=str(div), id_=order_id, title=title, price=price, buyer_username=buyer_username,
                                 buyer_id=buyer_id, status=status)
             orders_list.append(order)
+        orders_log = "".join(f"{i.id} | {i.price} | {i.buyer_username} | {i.status} | {i.title}" for i in orders_list)
+        logger.debug(f"Список полученных заказов: {orders_log}")
         return orders_list
 
     def send_message(self, message_obj: types.Message) -> dict:
