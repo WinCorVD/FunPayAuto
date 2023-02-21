@@ -209,7 +209,7 @@ def commands_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup
 
     :param cardinal: экземпляр кардинала.
 
-    :param offset: оффсет списка команд.
+    :param offset: смещение списка команд.
 
     :return: экземпляр клавиатуры.
     """
@@ -220,7 +220,7 @@ def commands_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup
         commands = cardinal.RAW_AR_CFG.sections()[offset: offset + MENU_CFG.AR_BTNS_COUNT]
 
     for index, cmd in enumerate(commands):
-        #  CBT.EDIT_CMD:номер команды:оффсет (для кнопки назад)
+        #  CBT.EDIT_CMD:номер команды:смещение (для кнопки назад)
         keyboard.add(Button(cmd, callback_data=f"{CBT.EDIT_CMD}:{offset + index}:{offset}"))
 
     keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AR_BTNS_COUNT, len(commands),
@@ -239,7 +239,7 @@ def edit_command(cardinal: Cardinal, command_index: int, offset: int) -> types.I
 
     :param command_index: номер команды.
 
-    :param offset: оффсет списка команд.
+    :param offset: смещение списка команд.
 
     :return: экземпляр клавиатуры.
     """
@@ -263,7 +263,7 @@ def products_files_list(offset: int) -> types.InlineKeyboardMarkup:
     """
     Создает клавиатуру со списком файлов с товарами (CBT.PRODUCTS_FILES_LIST:<offset>).
 
-    :param offset: оффсет списка файлов.
+    :param offset: смещение списка файлов.
 
     :return: экземпляр клавиатуры.
     """
@@ -291,7 +291,7 @@ def products_file_edit(file_number: int, offset: int, confirmation: bool = False
 
     :param file_number: номер файла.
 
-    :param offset: оффсет списка файлов с товарами.
+    :param offset: смещение списка файлов с товарами.
 
     :param confirmation: включить ли в клавиатуру подтверждение удаления файла.
 
@@ -317,7 +317,7 @@ def lots_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup:
 
     :param cardinal: экземпляр кардинала.
 
-    :param offset: оффсет списка лотов.
+    :param offset: смещение списка лотов.
 
     :return: экземпляр клавиатуры.
     """
@@ -369,7 +369,7 @@ def edit_lot(cardinal: Cardinal, lot_number: int, offset: int) -> types.InlineKe
 
     :param lot_number: номер лота.
 
-    :param offset: оффсет списка слотов.
+    :param offset: смещение списка слотов.
 
     :return: экземпляр клавиатуры.
     """
@@ -428,7 +428,7 @@ def configs() -> types.InlineKeyboardMarkup:
 # Прочее
 def new_order(order_id: str, confirmation: bool = False, no_refund: bool = False) -> types.InlineKeyboardMarkup:
     """
-    Генерирует клавиатуру для сообщения о новом оредере.
+    Генерирует клавиатуру для сообщения о новом заказе.
 
     :param order_id: ID заказа (без #).
 
@@ -450,7 +450,7 @@ def new_order(order_id: str, confirmation: bool = False, no_refund: bool = False
     return keyboard
 
 
-def reply(node_id: int, username: str) -> types.InlineKeyboardMarkup:
+def reply(node_id: int, username: str, again: bool = False) -> types.InlineKeyboardMarkup:
     """
     Генерирует кнопку для отправки сообщения из Telegram в ЛС пользователю FunPay.
 
@@ -458,11 +458,15 @@ def reply(node_id: int, username: str) -> types.InlineKeyboardMarkup:
 
     :param username: никнейм пользователя, с которым ведется переписка.
 
+    :param again: заменить текст "Отправить" на "Отправить еще"?
+
     :return: экземпляр кнопки (клавиатуры).
     """
     keyboard = types.InlineKeyboardMarkup()\
-        .row(Button(text="📨 Ответить", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"),
-             Button(text="📝 Заготовки", callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:0:{node_id}:{username}"))
+        .row(Button(text=f"{'📨 Ответить' if not again else '📨 Отправить еще'}",
+                    callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"),
+             Button(text="📝 Заготовки", callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:0:{node_id}:{username}:"
+                                                      f"{0 if not again else 1}"))
     return keyboard
 
 
@@ -473,7 +477,7 @@ def templates_list(cardinal: Cardinal, offset: int) \
 
     :param cardinal: экземпляр кардинала.
 
-    :param offset: оффсет списка шаблонов.
+    :param offset: смещение списка шаблонов.
 
     :return: экземпляр клавиатуры.
     """
@@ -501,11 +505,58 @@ def edit_template(cardinal: Cardinal, template_index: int, offset: int) -> types
 
     :param template_index: числовой индекс шаблона ответа.
 
-    :param offset: оффсет списка шаблонов ответа.
+    :param offset: смещение списка шаблонов ответа.
 
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()\
         .add(Button("◀️ Назад", callback_data=f"{CBT.TMPLT_LIST}:{offset}"))\
         .add(Button("🗑️ Удалить", callback_data=f"{CBT.DEL_TMPLT}:{template_index}:{offset}"))
+    return keyboard
+
+
+def templates_list_ans_mode(cardinal: Cardinal, offset: int, node_id: int, username: str, prev_page: int,
+                            extra: list | None = None):
+    """
+    Создает клавиатуру со списком шаблонов ответов.
+    (CBT.TMPLT_LIST_ANS_MODE:{offset}:{node_id}:{username}:{prev_page}:{extra}).
+
+
+    :param cardinal: экземпляр кардинала.
+
+    :param offset: смещение списка шаблонов ответа.
+
+    :param node_id: ID чата, в который нужно отправить шаблон.
+
+    :param username: никнейм пользователя, с которым ведется переписка.
+
+    :param prev_page: предыдущая страница.
+
+    :param extra: доп данные для пред. страницы.
+
+    :return: экземпляр клавиатуры.
+    """
+
+    keyboard = types.InlineKeyboardMarkup()
+    templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+    extra_str = ":" + ":".join(str(i) for i in extra) if extra else ""
+
+    if not templates and offset != 0:
+        offset = 0
+        templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+
+    for index, tmplt in enumerate(templates):
+        keyboard.add(Button(tmplt.replace("$username", username),
+                            callback_data=f"{CBT.SEND_TMPLT}:{offset + index}:{node_id}:{username}:{prev_page}{extra_str}"))
+
+    extra_list = [node_id, username, prev_page]
+    extra_list.extend(extra)
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.TMPLT_BTNS_COUNT, len(templates),
+                                            len(cardinal.telegram.answer_templates), CBT.TMPLT_LIST_ANS_MODE,
+                                            extra_list)
+
+    if prev_page == 0:
+        keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.BACK_TO_REPLY_KB}:{node_id}:{username}:0"))
+    elif prev_page == 1:
+        keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.BACK_TO_REPLY_KB}:{node_id}:{username}:1"))
     return keyboard

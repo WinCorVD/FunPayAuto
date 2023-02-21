@@ -540,18 +540,25 @@ class TGBot:
         new_msg_obj = FunPayAPI.types.Message(response_text, node_id, None)
         result = self.cardinal.send_message(new_msg_obj)
         if result:
-            keyboard = types.InlineKeyboardMarkup() \
-                .add(Button("📨 Отправить еще", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
             self.bot.reply_to(message, f'✅ Сообщение отправлено в переписку '
                                        f'<a href="https://funpay.com/chat/?node={node_id}">{username}</a>.',
-                              allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
+                              allow_sending_without_reply=True, parse_mode="HTML",
+                              reply_markup=keyboards.reply(node_id, username, again=True))
         else:
-            keyboard = types.InlineKeyboardMarkup() \
-                .add(Button("📨 Попробовать еще раз", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"))
             self.bot.reply_to(message, f'❌ Не удалось отправить сообщение в переписку '
                                        f'<a href="https://funpay.com/chat/?node={node_id}">{username}</a>. '
                                        f'Подробнее в файле <code>logs/log.log</code>',
-                              allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
+                              allow_sending_without_reply=True, parse_mode="HTML",
+                              reply_markup=keyboards.reply(node_id, username, again=True))
+
+    def open_reply_menu(self, c: types.CallbackQuery):
+        """
+        Открывает меню ответа на сообщение (callback используется в кнопках "назад").
+        """
+        split = c.data.split(":")
+        node_id, username, again = int(split[1]), split[2], int(split[3])
+        self.bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                           reply_markup=keyboards.reply(node_id, username, bool(again)))
 
     # Ордер
     def ask_to_confirm_refund(self, call: types.CallbackQuery):
@@ -733,6 +740,7 @@ ID чата: <code>{call.message.chat.id}</code>""",
         self.msg_handler(self.ask_power_off, commands=["power_off"])
 
         self.cbq_handler(self.act_send_funpay_message, lambda c: c.data.startswith(f"{CBT.SEND_FP_MESSAGE}:"))
+        self.cbq_handler(self.open_reply_menu, lambda c: c.data.startswith(f"{CBT.BACK_TO_REPLY_KB}:"))
         self.msg_handler(self.send_funpay_message,
                          func=lambda m: self.check_state(m.chat.id, m.from_user.id, CBT.SEND_FP_MESSAGE))
         self.cbq_handler(self.ask_to_confirm_refund, lambda call: call.data.startswith(f"{CBT.REQUEST_REFUND}:"))

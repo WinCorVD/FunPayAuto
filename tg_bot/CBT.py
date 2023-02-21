@@ -291,11 +291,15 @@ offset: int - смещение списка шаблонов ответа.
 TMPLT_LIST_ANS_MODE = "26"
 """
 Callback для открытия списка шаблонов ответа в режиме ответа.
-Использование: CBT.TMPLT_LIST_ANS_MODE:offset:node_id:username:prev:order_id
+Использование: CBT.TMPLT_LIST_ANS_MODE:offset:node_id:username:prev_page:extra
 
 offset: int - смещение списка шаблонов ответа.
 node_id: int - ID переписки, в которую нужно отправить шаблон.
 username: str - имя пользователя, с которым ведется переписка.
+prev_page: ID предыдущей клавиатуры
+    0 - клавиатура нового сообщения
+    1 - клавиатура нового заказа
+extra: str / int - доп. данные для клавиатуры (через ":")
 """
 
 
@@ -439,4 +443,15 @@ User-state: ожидается сообщение с названием лота
 CLEAR_USER_STATE = "41"
 """
 Callback для установки состояния пользователя на None.
+"""
+
+
+BACK_TO_REPLY_KB = "42"
+"""
+Callback для редактирования сообщения: возвращение в клавиатуру нового сообщения.
+Использование: CBT.BACK_TO_REPLY_KB:node_id:username:again
+
+node_id: int - ID чата.
+username: str - никнейм пользователя, с которым ведется переписка.
+again: 0/1 - вариант клавиатуры.
 """

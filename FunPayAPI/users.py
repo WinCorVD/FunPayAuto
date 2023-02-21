@@ -36,7 +36,7 @@ def get_user(user_id: int, include_currency: bool = False, user_agent: str = "",
     }
     proxy = proxy if proxy is not None else {}
     response = requests.get(f"{types.Links.USER}/{user_id}/", headers=headers, proxies=proxy, timeout=timeout)
-    logger.debug(response.status_code)
+    logger.debug(f"Статус-код получения страницы пользователя {user_id}: {response.status_code}.")
     if response.status_code == 404:
         raise Exception("Пользователь не найден.")  # todo: создать и добавить кастомное исключение: пользователя не существует.
     if response.status_code != 200:

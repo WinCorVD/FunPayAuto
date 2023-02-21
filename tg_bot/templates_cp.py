@@ -55,7 +55,12 @@ def init_templates_cp(cardinal: Cardinal, *args):
         """
         Открывает список существующих шаблонов ответов (answer_mode).
         """
-        bot.answer_callback_query(c.id)
+        split = c.data.split(":")
+        offset, node_id, username, prev_page, extra = int(split[1]), int(split[2]), split[3], int(split[4]), split[5:]
+        bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                      reply_markup=keyboards.templates_list_ans_mode(cardinal,
+                                                                                     offset, node_id, username,
+                                                                                     prev_page, extra))
 
     def open_edit_template_cp(c: types.CallbackQuery):
         split = c.data.split(":")
