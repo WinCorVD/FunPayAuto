@@ -565,8 +565,9 @@ class TGBot:
         """
         Просит подтвердить возврат денег.
         """
-        order_id = call.data.split(":")[1]
-        keyboard = keyboards.new_order(order_id, confirmation=True)
+        split = call.data.split(":")
+        order_id, node_id, username = split[1], int(split[2]), split[3]
+        keyboard = keyboards.new_order(order_id, username, node_id, confirmation=True)
         self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=keyboard)
         self.bot.answer_callback_query(call.id)
 
@@ -574,8 +575,9 @@ class TGBot:
         """
         Отменяет возврат.
         """
-        order_id = call.data.split(":")[1]
-        keyboard = keyboards.new_order(order_id)
+        split = call.data.split(":")
+        order_id, node_id, username = split[1], int(split[2]), split[3]
+        keyboard = keyboards.new_order(order_id, username, node_id)
         self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=keyboard)
         self.bot.answer_callback_query(call.id)
 
@@ -583,7 +585,8 @@ class TGBot:
         """
         Оформляет возврат за заказ.
         """
-        order_id = call.data.split(":")[1]
+        split = call.data.split(":")
+        order_id, node_id, username = split[1], int(split[2]), split[3]
         new_msg = False
         attempts = 3
         while attempts:
@@ -612,7 +615,7 @@ class TGBot:
                 self.bot.edit_message_text(f"✅ Средства по заказу <code>#{order_id}</code> возвращены.",
                                            new_msg.chat.id, new_msg.id, parse_mode="HTML")
 
-            keyboard = keyboards.new_order(order_id, no_refund=True)
+            keyboard = keyboards.new_order(order_id, username, node_id, no_refund=True)
             self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=keyboard)
             self.bot.answer_callback_query(call.id)
             return
@@ -620,9 +623,16 @@ class TGBot:
         self.bot.edit_message_text(f"❌ Не удалось вернуть средства по заказу <code>#{order_id}</code>.",
                                    new_msg.chat.id, new_msg.id, parse_mode="HTML")
 
-        keyboard = keyboards.new_order(order_id)
+        keyboard = keyboards.new_order(order_id, username, node_id)
         self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=keyboard)
         self.bot.answer_callback_query(call.id)
+
+    def open_order_menu(self, c: types.CallbackQuery):
+        split = c.data.split(":")
+        node_id, username, order_id, no_refund = int(split[1]), split[2], split[3], bool(int(split[4]))
+        self.bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                           reply_markup=keyboards.new_order(order_id, username, node_id,
+                                                                            no_refund=no_refund))
 
     # Панель управления
     def open_cp(self, call: types.CallbackQuery):
@@ -746,6 +756,7 @@ ID чата: <code>{call.message.chat.id}</code>""",
         self.cbq_handler(self.ask_to_confirm_refund, lambda call: call.data.startswith(f"{CBT.REQUEST_REFUND}:"))
         self.cbq_handler(self.cancel_refund, lambda call: call.data.startswith(f"{CBT.REFUND_CANCELLED}:"))
         self.cbq_handler(self.refund, lambda call: call.data.startswith(f"{CBT.REFUND_CONFIRMED}:"))
+        self.cbq_handler(self.open_order_menu, lambda call: call.data.startswith(f"{CBT.BACK_TO_ORDER_KB}:"))
         self.cbq_handler(self.open_cp, lambda call: call.data == CBT.MAIN)
         self.cbq_handler(self.open_settings_section, lambda call: call.data.startswith(f"{CBT.CATEGORY}:"))
         self.cbq_handler(self.switch_param, lambda call: call.data.startswith(f"{CBT.SWITCH}:"))

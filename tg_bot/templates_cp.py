@@ -140,8 +140,12 @@ def init_templates_cp(cardinal: Cardinal, *args):
             elif prev_page == 1:
                 bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
                                               reply_markup=keyboards.reply(node_id, username, True))
-                bot.answer_callback_query(c.id)
-                return
+            elif prev_page == 2:
+                bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                              reply_markup=keyboards.new_order(extra[0], username, node_id,
+                                                                               no_refund=bool(int(extra[1]))))
+            bot.answer_callback_query(c.id)
+            return
 
         text = tg.answer_templates[template_index].replace("$username", username)
         new_msg_obj = FunPayAPI.types.Message(text, node_id, None)

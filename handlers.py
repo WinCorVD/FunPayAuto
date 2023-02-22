@@ -253,7 +253,9 @@ def send_new_order_notification_handler(cardinal: Cardinal, event: NewOrderEvent
 <b><i>Сумма:</i></b>  <code>{event.order.price}</code>
 <b><i>Лот:</i></b>  <code>{utils.escape(event.order.title)}</code>"""
 
-    keyboard = keyboards.new_order(event.order.id[1:])
+    node_id = cardinal.account.get_node_id_by_username(event.order.buyer_username)
+
+    keyboard = keyboards.new_order(event.order.id[1:], event.order.buyer_username, node_id)
     Thread(target=cardinal.telegram.send_notification, args=(text, keyboard, utils.NotificationTypes.new_order),
            daemon=True).start()
 

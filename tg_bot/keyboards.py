@@ -426,11 +426,16 @@ def configs() -> types.InlineKeyboardMarkup:
 
 
 # Прочее
-def new_order(order_id: str, confirmation: bool = False, no_refund: bool = False) -> types.InlineKeyboardMarkup:
+def new_order(order_id: str, username: str, node_id: int,
+              confirmation: bool = False, no_refund: bool = False) -> types.InlineKeyboardMarkup:
     """
     Генерирует клавиатуру для сообщения о новом заказе.
 
     :param order_id: ID заказа (без #).
+
+    :param username: никнейм покупателя.
+
+    :param node_id: ID чата с покупателем.
 
     :param confirmation: заменить ли кнопку "Вернуть деньги" на подтверждение "Да" / "Нет"?
 
@@ -441,12 +446,16 @@ def new_order(order_id: str, confirmation: bool = False, no_refund: bool = False
     keyboard = types.InlineKeyboardMarkup()
     if not no_refund:
         if confirmation:
-            keyboard.row(Button(text="✅ Да", callback_data=f"{CBT.REFUND_CONFIRMED}:{order_id}"),
-                         Button(text="❌ Нет", callback_data=f"{CBT.REFUND_CANCELLED}:{order_id}"))
+            keyboard.row(Button(text="✅ Да", callback_data=f"{CBT.REFUND_CONFIRMED}:{order_id}:{node_id}:{username}"),
+                         Button(text="❌ Нет", callback_data=f"{CBT.REFUND_CANCELLED}:{order_id}:{node_id}:{username}"))
         else:
-            keyboard.add(Button(text="💸 Вернуть деньги", callback_data=f"{CBT.REQUEST_REFUND}:{order_id}"))
+            keyboard.add(Button(text="💸 Вернуть деньги",
+                                callback_data=f"{CBT.REQUEST_REFUND}:{order_id}:{node_id}:{username}"))
 
-    keyboard.add(Button(text="🌐 Открыть страницу заказа", url=f"https://funpay.com/orders/{order_id}/"))
+    keyboard.add(Button(text="🌐 Открыть страницу заказа", url=f"https://funpay.com/orders/{order_id}/")) \
+        .row(Button(text="📨 Ответить", callback_data=f"{CBT.SEND_FP_MESSAGE}:{node_id}:{username}"),
+             Button(text="📝 Заготовки", callback_data=f"{CBT.TMPLT_LIST_ANS_MODE}:0:{node_id}:{username}:2:{order_id}:"
+                                                      f"{1 if no_refund else 0}"))
     return keyboard
 
 
@@ -559,4 +568,6 @@ def templates_list_ans_mode(cardinal: Cardinal, offset: int, node_id: int, usern
         keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.BACK_TO_REPLY_KB}:{node_id}:{username}:0"))
     elif prev_page == 1:
         keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.BACK_TO_REPLY_KB}:{node_id}:{username}:1"))
+    elif prev_page == 2:
+        keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.BACK_TO_ORDER_KB}:{node_id}:{username}{extra_str}"))
     return keyboard
