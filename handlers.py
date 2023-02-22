@@ -361,13 +361,14 @@ def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent,
         return
 
     if errored:
-        text = f"""Произошла ошибка при выдаче товара для ордера <code>{event.order.id}</code>.
-Ошибка: {delivery_text}"""
-    else:
-        text = f"""Успешно выдал товар для ордера <code>{event.order.id}</code>.
+        text = f"""❌ Произошла ошибка при выдаче товара для ордера <code>{event.order.id}</code>.
 
------ ТОВАР -----
-{utils.escape(delivery_text)}"""
+Ошибка: <code>{utils.escape(delivery_text)}</code>"""
+    else:
+        text = f"""✅ Успешно выдал товар для ордера <code>{event.order.id}</code>.
+
+<b><i>Товар:</i></b>
+<code>{utils.escape(delivery_text)}</code>"""
 
     Thread(target=cardinal.telegram.send_notification, args=(text, ),
            kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
