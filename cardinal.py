@@ -227,8 +227,7 @@ class Cardinal(object):
                 time.sleep(2)
                 if not infinite_polling:
                     count -= 1
-
-        if not count:
+        else:
             logger.error(f"Произошло ошибка при получении данных о лотах и категориях: "
                          f"превышено кол-во попыток ({attempts}).")
             return False
