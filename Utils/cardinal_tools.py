@@ -117,6 +117,35 @@ def load_block_list() -> list[str]:
         return block_list
 
 
+def cache_disabled_plugins(disabled_plugins: list[str]) -> None:
+    """
+    Кэширует UUID отключенных плагинов.
+
+    :param disabled_plugins: список UUID отключенных плагинов.
+    """
+    if not os.path.exists("storage/cache"):
+        os.makedirs("storage/cache")
+
+    with open("storage/cache/disabled_plugins.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(disabled_plugins))
+
+
+def load_disabled_plugins() -> list[str]:
+    """
+    Загружает список UUID отключенных плагинов из кэша.
+
+    :return: список UUID отключенных плагинов.
+    """
+    if not os.path.exists("storage/cache/disabled_plugins.json"):
+        return []
+
+    with open("storage/cache/disabled_plugins.json", "r", encoding="utf-8") as f:
+        try:
+            return json.loads(f.read())
+        except json.decoder.JSONDecodeError:
+            return []
+
+
 def create_greetings(account: FunPayAPI.account.Account):
     """
     Генерирует приветствие для вывода в консоль после загрузки данных о пользователе.

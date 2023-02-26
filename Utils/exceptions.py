@@ -151,3 +151,16 @@ class ConfigParseError(Exception):
 
     def __str__(self):
         return f"Ошибка в конфиге {self.config_path}, в секции [{self.section_name}]: {self.exception}"
+
+
+class FieldNotExistsError(Exception):
+    """
+    Исключение, которое райзится, если при загрузке плагина не было обнаружено переданное поле.
+    """
+    def __init__(self, field_name: str, plugin_file_name: str):
+        self.field_name = field_name
+        self.plugin_file_name = plugin_file_name
+
+    def __str__(self):
+        return f"Не удалось загрузить плагин {self.plugin_file_name}: отсутствует обязательное поле " \
+               f"\"{self.field_name}\"."
