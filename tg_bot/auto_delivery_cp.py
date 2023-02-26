@@ -149,7 +149,7 @@ $product""")
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
         lot_index = len(cardinal.AD_CFG.sections()) - 1
-        ad_lot_offset = utils.get_offset(lot_index, MENU_CFG.AD_BTNS_COUNT)
+        ad_lot_offset = utils.get_offset(lot_index, MENU_CFG.AD_BTNS_AMOUNT)
         keyboard = types.InlineKeyboardMarkup() \
             .row(Button("◀️ Назад", callback_data=f"{CBT.FP_LOTS_LIST}:{fp_lots_offset}"),
                  Button("➕ Добавить еще", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{fp_lots_offset}"),
@@ -518,7 +518,7 @@ $product""")
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
         ad_lot_index = len(cardinal.AD_CFG.sections()) - 1
-        ad_lots_offset = utils.get_offset(ad_lot_index, MENU_CFG.AD_BTNS_COUNT)
+        ad_lots_offset = utils.get_offset(ad_lot_index, MENU_CFG.AD_BTNS_AMOUNT)
         keyboard = types.InlineKeyboardMarkup() \
             .row(Button("◀️ Назад", callback_data=f"{CBT.FP_LOTS_LIST}:{fp_lots_offset}"),
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{ad_lot_index}:{ad_lots_offset}"))

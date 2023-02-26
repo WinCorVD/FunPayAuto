@@ -13,6 +13,7 @@ VERSION = "0.0.1"
 DESCRIPTION = "Тестовый плагин."
 CREDITS = "@woopertail"
 UUID = "9f09a878-aa02-4e87-aaec-eba23693503a"
+SETTINGS_PAGE = True
 
 logger = logging.getLogger(f"FPC.{__name__}")
 

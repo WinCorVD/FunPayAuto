@@ -80,6 +80,7 @@ def settings_sections() -> types.InlineKeyboardMarkup:
         .add(Button("📦 Настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("🚫 Настройки черного списка",  callback_data=f"{CBT.CATEGORY}:blockList"))\
         .add(Button("📝 Заготовки ответов", callback_data=f"{CBT.TMPLT_LIST}:0"))\
+        .add(Button("🧩 Управление плагинами", callback_data=f"{CBT.PLUGINS_LIST}:0"))\
         .add(Button("📁 Управление конфиг-файлами", callback_data="config_loader"))
     return keyboard
 
@@ -214,16 +215,16 @@ def commands_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()
-    commands = cardinal.RAW_AR_CFG.sections()[offset: offset + MENU_CFG.AR_BTNS_COUNT]
+    commands = cardinal.RAW_AR_CFG.sections()[offset: offset + MENU_CFG.AR_BTNS_AMOUNT]
     if not commands and offset != 0:
         offset = 0
-        commands = cardinal.RAW_AR_CFG.sections()[offset: offset + MENU_CFG.AR_BTNS_COUNT]
+        commands = cardinal.RAW_AR_CFG.sections()[offset: offset + MENU_CFG.AR_BTNS_AMOUNT]
 
     for index, cmd in enumerate(commands):
         #  CBT.EDIT_CMD:номер команды:смещение (для кнопки назад)
         keyboard.add(Button(cmd, callback_data=f"{CBT.EDIT_CMD}:{offset + index}:{offset}"))
 
-    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AR_BTNS_COUNT, len(commands),
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AR_BTNS_AMOUNT, len(commands),
                                             len(cardinal.RAW_AR_CFG.sections()), CBT.CMD_LIST)
 
     keyboard.add(Button("🤖 В настройки авто-ответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
@@ -268,7 +269,7 @@ def products_files_list(offset: int) -> types.InlineKeyboardMarkup:
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()
-    files = os.listdir("storage/products")[offset:offset + MENU_CFG.PF_BTNS_COUNT]
+    files = os.listdir("storage/products")[offset:offset + MENU_CFG.PF_BTNS_AMOUNT]
     if not files and offset != 0:
         offset = 0
         files = os.listdir("storage/products")[offset:offset + 5]
@@ -276,7 +277,7 @@ def products_files_list(offset: int) -> types.InlineKeyboardMarkup:
     for index, name in enumerate(files):
         keyboard.add(Button(name, callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{offset + index}:{offset}"))
 
-    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.PF_BTNS_COUNT, len(files),
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.PF_BTNS_AMOUNT, len(files),
                                             len(os.listdir("storage/products")), CBT.PRODUCTS_FILES_LIST)
 
     keyboard.add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
@@ -322,15 +323,15 @@ def lots_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup:
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()
-    lots = cardinal.AD_CFG.sections()[offset: offset + MENU_CFG.AD_BTNS_COUNT]
+    lots = cardinal.AD_CFG.sections()[offset: offset + MENU_CFG.AD_BTNS_AMOUNT]
     if not lots and offset != 0:
         offset = 0
-        lots = cardinal.AD_CFG.sections()[offset: offset + MENU_CFG.AD_BTNS_COUNT]
+        lots = cardinal.AD_CFG.sections()[offset: offset + MENU_CFG.AD_BTNS_AMOUNT]
 
     for index, lot in enumerate(lots):
         keyboard.add(Button(lot, callback_data=f"{CBT.EDIT_AD_LOT}:{offset + index}:{offset}"))
 
-    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AD_BTNS_COUNT, len(lots),
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AD_BTNS_AMOUNT, len(lots),
                                             len(cardinal.AD_CFG.sections()), CBT.AD_LOTS_LIST)
 
     keyboard.add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery")) \
@@ -343,15 +344,15 @@ def funpay_lots_list(cardinal: Cardinal, offset: int):
     Создает клавиатуру со списком лотов с FunPay (funpay_lots:<offset>).
     """
     keyboard = types.InlineKeyboardMarkup()
-    lots = cardinal.telegram_lots[offset: offset + MENU_CFG.FP_LOTS_BTNS_COUNT]
+    lots = cardinal.telegram_lots[offset: offset + MENU_CFG.FP_LOTS_BTNS_AMOUNT]
     if not lots and offset != 0:
         offset = 0
-        lots = cardinal.telegram_lots[offset: offset + MENU_CFG.FP_LOTS_BTNS_COUNT]
+        lots = cardinal.telegram_lots[offset: offset + MENU_CFG.FP_LOTS_BTNS_AMOUNT]
 
     for index, lot in enumerate(lots):
         keyboard.add(Button(lot.title, callback_data=f"{CBT.ADD_AD_TO_LOT}:{offset + index}:{offset}"))
 
-    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.FP_LOTS_BTNS_COUNT, len(lots),
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.FP_LOTS_BTNS_AMOUNT, len(lots),
                                             len(cardinal.telegram_lots), CBT.FP_LOTS_LIST)
 
     keyboard.row(Button("➕ Ввести вручную", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{offset}"),
@@ -491,15 +492,15 @@ def templates_list(cardinal: Cardinal, offset: int) \
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()
-    templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+    templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_AMOUNT]
     if not templates and offset != 0:
         offset = 0
-        templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+        templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_AMOUNT]
 
     for index, tmplt in enumerate(templates):
         keyboard.add(Button(tmplt, callback_data=f"{CBT.EDIT_TMPLT}:{offset + index}:{offset}"))
 
-    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.TMPLT_BTNS_COUNT, len(templates),
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.TMPLT_BTNS_AMOUNT, len(templates),
                                             len(cardinal.telegram.answer_templates), CBT.TMPLT_LIST)
     keyboard.add(Button("➕ Добавить заготовку", callback_data=f"{CBT.ADD_TMPLT}:{offset}"))\
             .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
@@ -547,12 +548,12 @@ def templates_list_ans_mode(cardinal: Cardinal, offset: int, node_id: int, usern
     """
 
     keyboard = types.InlineKeyboardMarkup()
-    templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+    templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_AMOUNT]
     extra_str = ":" + ":".join(str(i) for i in extra) if extra else ""
 
     if not templates and offset != 0:
         offset = 0
-        templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_COUNT]
+        templates = cardinal.telegram.answer_templates[offset: offset + MENU_CFG.TMPLT_BTNS_AMOUNT]
 
     for index, tmplt in enumerate(templates):
         keyboard.add(Button(tmplt.replace("$username", username),
@@ -560,7 +561,7 @@ def templates_list_ans_mode(cardinal: Cardinal, offset: int, node_id: int, usern
 
     extra_list = [node_id, username, prev_page]
     extra_list.extend(extra)
-    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.TMPLT_BTNS_COUNT, len(templates),
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.TMPLT_BTNS_AMOUNT, len(templates),
                                             len(cardinal.telegram.answer_templates), CBT.TMPLT_LIST_ANS_MODE,
                                             extra_list)
 
@@ -570,4 +571,57 @@ def templates_list_ans_mode(cardinal: Cardinal, offset: int, node_id: int, usern
         keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.BACK_TO_REPLY_KB}:{node_id}:{username}:1"))
     elif prev_page == 2:
         keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.BACK_TO_ORDER_KB}:{node_id}:{username}{extra_str}"))
+    return keyboard
+
+
+def plugins_list(cardinal: Cardinal, offset: int):
+    """
+    Создает клавиатуру со списком плагинов (CBT.PLUGINS_LIST:<offset>).
+
+    :param cardinal: экземпляр кардинала.
+
+    :param offset: смещение списка плагинов.
+
+    :return: экземпляр клавиатуры.
+    """
+    keyboard = types.InlineKeyboardMarkup()
+    plugins = list(cardinal.plugins.keys())[offset: offset + MENU_CFG.PLUGINS_BTNS_AMOUNT]
+    if not plugins and offset != 0:
+        offset = 0
+        plugins = list(cardinal.plugins.keys())[offset: offset + MENU_CFG.PLUGINS_BTNS_AMOUNT]
+
+    for plugin in plugins:
+        #  CBT.EDIT_CMD:номер команды:смещение (для кнопки назад)
+        keyboard.add(Button(cardinal.plugins[plugin].name,
+                            callback_data=f"{CBT.EDIT_PLUGIN}:{plugin}:{offset}"))
+
+    keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.PLUGINS_BTNS_AMOUNT, len(plugins),
+                                            len(list(cardinal.plugins.keys())), CBT.PLUGINS_LIST)
+
+    keyboard.add(Button("📋 В главное меню", callback_data=CBT.MAIN))
+    return keyboard
+
+
+def edit_plugin(cardinal: Cardinal, uuid: str, offset: int):
+    """
+    Создает клавиатуру управления плагином.
+
+    :param cardinal: экземпляр кардинала.
+
+    :param uuid: UUID плагина.
+
+    :param offset: смещение списка плагинов.
+
+    :return: экземпляр клавиатуры.
+    """
+    plugin_obj = cardinal.plugins[uuid]
+    keyboard = types.InlineKeyboardMarkup()
+    active_text = "Деактивировать" if cardinal.plugins[uuid].enabled else "Активировать"
+    keyboard.add(Button(active_text, callback_data=f"{CBT.TOGGLE_PLUGIN}:{uuid}"))
+
+    if plugin_obj.settings_page:
+        keyboard.add(Button("⚙️ Настройки", callback_data=f"{CBT.PLUGIN_SETTINGS}:{uuid}:{offset}"))
+
+    keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.PLUGINS_LIST}:{offset}"))
+
     return keyboard

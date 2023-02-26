@@ -106,7 +106,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
 
         command_index = len(cardinal.RAW_AR_CFG.sections()) - 1
-        offset = utils.get_offset(command_index, MENU_CFG.AR_BTNS_COUNT)
+        offset = utils.get_offset(command_index, MENU_CFG.AR_BTNS_AMOUNT)
         keyboard = types.InlineKeyboardMarkup()\
             .row(Button("◀️ Назад", callback_data=f"{CBT.CATEGORY}:autoResponse"),
                  Button("➕ Добавить еще", callback_data=CBT.ADD_CMD),
