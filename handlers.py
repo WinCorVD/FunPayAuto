@@ -215,9 +215,7 @@ def update_current_lots_handler(cardinal: Cardinal, event: OrdersListChangedEven
     attempts = 3
     while attempts:
         try:
-            cardinal.current_lots = FunPayAPI.users.get_user(cardinal.account.id,
-                                                             user_agent=cardinal.MAIN_CFG["FunPay"]["user_agent"],
-                                                             proxy=cardinal.proxy).lots
+            cardinal.current_lots = cardinal.account.get_user(cardinal.account.id).lots
             cardinal.current_lots_last_tag = event.tag
             break
         except:
