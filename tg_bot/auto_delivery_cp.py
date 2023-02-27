@@ -203,7 +203,7 @@ $product""")
             with open(f"storage/products/{file_name}", "w", encoding="utf-8"):
                 pass
         except:
-            logger.debug(traceback.format_exc())
+            logger.debug("------TRACEBACK------", exc_info=True)
             keyboard = types.InlineKeyboardMarkup() \
                 .row(Button("◀️ Назад", callback_data=f"{CBT.CATEGORY}:autoDelivery"),
                      Button("➕ Создать другой", callback_data=CBT.CREATE_PRODUCTS_FILE))
@@ -363,7 +363,7 @@ $product""")
                 with open(f"storage/products/{file_name}", "w", encoding="utf-8"):
                     pass
             except:
-                logger.debug(traceback.format_exc())
+                logger.debug("------TRACEBACK------", exc_info=True)
                 bot.reply_to(m, f"❌ Произошла ошибка при создании файла "
                                 f"<code>storage/products/{utils.escape(file_name)}</code>. Подробнее в файле "
                                 f"<code>logs/log.log</code>.",
@@ -619,7 +619,7 @@ $product""")
                 f.write("\n")
                 f.write(products_text)
         except:
-            logger.debug(traceback.format_exc())
+            logger.debug("------TRACEBACK------", exc_info=True)
             keyboard = types.InlineKeyboardMarkup().row(back_btn, try_again_btn)
             bot.reply_to(m, f"❌ Не удалось добавить товары в файл. Подробнее в файле <code>logs/log.log</code>",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
@@ -723,7 +723,7 @@ $product""")
                                   c.message.chat.id, c.message.id,
                                   parse_mode="HTML", reply_markup=keyboard)
             bot.answer_callback_query(c.id)
-            logger.debug(traceback.format_exc())
+            logger.debug("------TRACEBACK------", exc_info=True)
             return
 
     # Основное меню настроек авто-выдачи.

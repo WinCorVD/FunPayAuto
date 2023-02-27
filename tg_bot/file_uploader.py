@@ -62,7 +62,7 @@ def download_file(tg: TGBot, msg: types.Message, file_name: str = "temp_file.txt
     except:
         tg.bot.send_message(msg.chat.id, "❌ Произошла ошибка при загрузке файла. Подробнее в файле "
                                          "<code>logs/log.log</code>.", parse_mode="HTML")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         return False
 
     with open(f"storage/cache/{file_name}", "wb") as new_file:
@@ -93,7 +93,7 @@ def upload_products_file(cardinal: Cardinal, msg: types.Message):
         bot.send_message(msg.chat.id,
                          "❌ Произошла ошибка при обработке файла с товарами. Подробнее в файле "
                          "<code>logs/log.log</code>.", parse_mode="HTML")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         return
 
     try:
@@ -105,7 +105,7 @@ def upload_products_file(cardinal: Cardinal, msg: types.Message):
         bot.send_message(msg.chat.id,
                          "❌ Произошла ошибка при сохранении файла с товарами. Подробнее в файле "
                          "<code>logs/log.log</code>.", parse_mode="HTML")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         return
     file_number = os.listdir("storage/products").index(file_name)
     keyboard = types.InlineKeyboardMarkup() \
@@ -150,7 +150,7 @@ def upload_auto_response_config(cardinal: Cardinal, msg: types.Message):
         bot.send_message(msg.chat.id,
                          "❌ Произошла ошибка при проверке конфига авто-выдачи. Подробнее в файле "
                          "<code>logs/log.log</code>", parse_mode="HTML")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         return
 
     cardinal.RAW_AR_CFG = raw_new_config
@@ -192,7 +192,7 @@ def upload_auto_delivery_config(cardinal: Cardinal, msg: types.Message):
         bot.send_message(msg.chat.id,
                          "❌ Произошла ошибка при проверке конфига авто-выдачи. Подробнее в файле "
                          "<code>logs/log.log</code>", parse_mode="HTML")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         return
 
     cardinal.AD_CFG = new_config
@@ -233,7 +233,7 @@ def upload_main_config(cardinal: Cardinal, msg: types.Message):
         bot.send_message(msg.chat.id,
                          "❌ Произошла ошибка при проверке конфига авто-выдачи. Подробнее в файле "
                          "<code>logs/log.log</code>", parse_mode="HTML")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         return
 
     cardinal.save_config(new_config, "configs/_main.cfg")

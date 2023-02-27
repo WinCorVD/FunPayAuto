@@ -94,7 +94,7 @@ except UnicodeDecodeError:
 
 except Exception as e:
     logger.critical("Произошла непредвиденная ошибка. Подробнее в файле logs/log.log.")
-    logger.debug(traceback.format_exc())
+    logger.debug("------TRACEBACK------", exc_info=True)
     logger.error("Завершаю программу...")
     sys.exit()
 
@@ -113,6 +113,6 @@ except KeyboardInterrupt:
     sys.exit()
 except:
     logger.critical("При работе Кардинала произошла необработанная ошибка. Подробнее в файле logs/log.log")
-    logger.debug(traceback.format_exc())
+    logger.debug("------TRACEBACK------", exc_info=True)
     logger.critical("Завершаю программу...")
     sys.exit()

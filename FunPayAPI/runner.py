@@ -131,7 +131,7 @@ class Runner:
                         time.sleep(1)
                     except:
                         logger.error("Не удалось обновить список ордеров.")
-                        logger.debug(traceback.format_exc())
+                        logger.debug("------TRACEBACK------", exc_info=True)
                         attempts -= 1
                         time.sleep(1)
                 if not attempts:
@@ -202,5 +202,5 @@ class Runner:
                 else:
                     logger.error("Произошла ошибка при получении событий "
                                  "(ничего страшного, если это сообщение появляется нечасто).")
-                    logger.debug(traceback.format_exc())
+                    logger.debug("------TRACEBACK------", exc_info=True)
             time.sleep(delay)

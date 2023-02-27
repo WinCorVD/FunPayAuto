@@ -220,7 +220,7 @@ def update_current_lots_handler(cardinal: Cardinal, event: OrdersListChangedEven
             break
         except:
             logger.error("Произошла ошибка при получении информации о лотах.")
-            logger.debug(traceback.format_exc())
+            logger.debug("------TRACEBACK------", exc_info=True)
             attempts -= 1
             time.sleep(2)
     if not attempts:
@@ -344,7 +344,7 @@ def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> 
                                   (cardinal, event, config_lot_name, result[1], False))
     except Exception as e:
         logger.error(f"Произошла непредвиденная ошибка при обработке заказа {event.order.id}.")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         cardinal.run_handlers(cardinal.post_delivery_handlers,
                               (cardinal, event, config_lot_name, str(e), True))
 
@@ -396,7 +396,7 @@ def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):
         except:
             logger.error(f"Произошла ошибка при изменении состояния лота $YELLOW{lot.title}$RESET."
                          "Подробнее в файле logs/log.log")
-            logger.debug(traceback.format_exc())
+            logger.debug("------TRACEBACK------", exc_info=True)
             attempts -= 1
             time.sleep(2)
     logger.error(f"Не удалось изменить состояние лота $YELLOW{lot.title}$RESET: превышено кол-во попыток.")
