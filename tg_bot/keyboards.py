@@ -617,11 +617,14 @@ def edit_plugin(cardinal: Cardinal, uuid: str, offset: int):
     plugin_obj = cardinal.plugins[uuid]
     keyboard = types.InlineKeyboardMarkup()
     active_text = "Деактивировать" if cardinal.plugins[uuid].enabled else "Активировать"
-    keyboard.add(Button(active_text, callback_data=f"{CBT.TOGGLE_PLUGIN}:{uuid}"))
+    keyboard.add(Button(active_text, callback_data=f"{CBT.TOGGLE_PLUGIN}:{uuid}:{offset}"))
 
+    if plugin_obj.commands:
+        keyboard.add(Button("⌨️ Команды", callback_data=f"{CBT.PLUGIN_COMMANDS}:{uuid}:{offset}"))
     if plugin_obj.settings_page:
         keyboard.add(Button("⚙️ Настройки", callback_data=f"{CBT.PLUGIN_SETTINGS}:{uuid}:{offset}"))
 
+    keyboard.add(Button("🗑️ Удалить", callback_data=f"{CBT.DELETE_PLUGIN}:{uuid}:{offset}"))
     keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.PLUGINS_LIST}:{offset}"))
 
     return keyboard

@@ -498,15 +498,34 @@ offset: int - смещение списка плагинов.
 TOGGLE_PLUGIN = "46"
 """
 Callback для активации / деактивации плагина.
-Использование: CBT.TOGGLE_PLUGIN:UUID
+Использование: CBT.TOGGLE_PLUGIN:UUID:offset
 
 UUID: str - UUID плагина.
+offset: int - смещение списка плагинов.
 """
 
 PLUGIN_SETTINGS = "47"
 """
 Callback для открытия страницы настроек плагины.
 Использование: CBT.PLUGIN_SETTING:UUID:offset
+
+UUID: str - UUID плагина.
+offset: int - смещение списка плагинов.
+"""
+
+PLUGIN_COMMANDS = "48"
+"""
+Callback для открытия списка команд плагина.
+Использование: CBT.PLUGIN_COMMANDS:UUID:offset
+
+UUID: str - UUID плагина.
+offset: int - смещение списка плагинов.
+"""
+
+DELETE_PLUGIN = "49"
+"""
+Callback для удаление плагина.
+Использование: CBT.DELETE_PLUGIN:UUID:offset
 
 UUID: str - UUID плагина.
 offset: int - смещение списка плагинов.
