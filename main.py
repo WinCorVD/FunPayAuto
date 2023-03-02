@@ -3,7 +3,6 @@ from first_setup import first_setup
 from colorama import Fore, Style
 import Utils.logger
 import logging.config
-import traceback
 import colorama
 import sys
 import json
@@ -92,7 +91,7 @@ except UnicodeDecodeError:
     logger.error("Завершаю программу...")
     sys.exit()
 
-except Exception as e:
+except:
     logger.critical("Произошла непредвиденная ошибка. Подробнее в файле logs/log.log.")
     logger.debug("------TRACEBACK------", exc_info=True)
     logger.error("Завершаю программу...")

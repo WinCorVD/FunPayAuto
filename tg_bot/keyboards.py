@@ -76,8 +76,8 @@ def settings_sections() -> types.InlineKeyboardMarkup:
     keyboard = types.InlineKeyboardMarkup()\
         .add(Button("⚙️ Основные настройки", callback_data=f"{CBT.CATEGORY}:main"))\
         .add(Button("🔔 Настройки уведомлений", callback_data=f"{CBT.CATEGORY}:telegram"))\
-        .add(Button("🤖 Настройки авто-ответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
-        .add(Button("📦 Настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
+        .add(Button("🤖 Настройки автоответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
+        .add(Button("📦 Настройки автовыдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("🚫 Настройки черного списка",  callback_data=f"{CBT.CATEGORY}:blockList"))\
         .add(Button("📝 Заготовки ответов", callback_data=f"{CBT.TMPLT_LIST}:0"))\
         .add(Button("🧩 Управление плагинами", callback_data=f"{CBT.PLUGINS_LIST}:0"))\
@@ -94,11 +94,11 @@ def main_settings(cardinal: Cardinal) -> types.InlineKeyboardMarkup:
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()\
-        .row(Button(f"Авто-поднятие {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoRaise']) else '🔴'}",
+        .row(Button(f"Автоподнятие {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoRaise']) else '🔴'}",
                     callback_data=f"{CBT.SWITCH}:FunPay:autoRaise"),
-             Button(f"Авто-ответчик {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoResponse']) else '🔴'}",
+             Button(f"Автоответчик {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoResponse']) else '🔴'}",
                     callback_data=f"{CBT.SWITCH}:FunPay:autoResponse"))\
-        .row(Button(f"Авто-выдача {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoDelivery']) else '🔴'}",
+        .row(Button(f"Автовыдача {'🟢' if int(cardinal.MAIN_CFG['FunPay']['autoDelivery']) else '🔴'}",
                     callback_data=f"{CBT.SWITCH}:FunPay:autoDelivery"),
              Button(f"Мульти-выдача {utils.bool_to_text(cardinal.MAIN_CFG['FunPay'].getboolean('multiDelivery'))}",
                     callback_data=f"{CBT.SWITCH}:FunPay:multiDelivery"))\
@@ -149,7 +149,7 @@ def notifications_settings(cardinal: Cardinal, chat_id: int) -> types.InlineKeyb
 
 def ar_settings() -> types.InlineKeyboardMarkup:
     """
-    Создает клавиатуру настроек авто-ответчика (CBT.CATEGORY:autoResponse).
+    Создает клавиатуру настроек автоответчика (CBT.CATEGORY:autoResponse).
 
     :return: экземпляр клавиатуры.
     """
@@ -162,13 +162,13 @@ def ar_settings() -> types.InlineKeyboardMarkup:
 
 def ad_settings() -> types.InlineKeyboardMarkup:
     """
-    Создает клавиатуру настроек авто-выдачи (CBT.CATEGORY:autoDelivery).
+    Создает клавиатуру настроек автовыдачи (CBT.CATEGORY:autoDelivery).
 
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup() \
-        .add(Button("🗳️ Редактировать авто-выдачу лотов", callback_data=f"{CBT.AD_LOTS_LIST}:0")) \
-        .add(Button("➕ Добавить авто-выдачу лоту", callback_data=f"{CBT.FP_LOTS_LIST}:0"))\
+        .add(Button("🗳️ Редактировать автовыдачу лотов", callback_data=f"{CBT.AD_LOTS_LIST}:0")) \
+        .add(Button("➕ Добавить автовыдачу лоту", callback_data=f"{CBT.FP_LOTS_LIST}:0"))\
         .add(Button("📋 Редактировать товарные файлы", callback_data=f"{CBT.PRODUCTS_FILES_LIST}:0"))\
         .row(Button("⤴️ Выгрузить товарный файл", callback_data=CBT.UPLOAD_PRODUCTS_FILE),
              Button("➕ Новый товарный файл", callback_data=CBT.CREATE_PRODUCTS_FILE))\
@@ -185,10 +185,10 @@ def block_list_settings(cardinal: Cardinal) -> types.InlineKeyboardMarkup:
     :return: экземпляр клавиатуры.
     """
     keyboard = types.InlineKeyboardMarkup()\
-        .add(Button(f"Блокировать авто-выдачу "
+        .add(Button(f"Блокировать автовыдачу "
                     f"{'🟢' if int(cardinal.MAIN_CFG['BlockList']['blockDelivery']) else '🔴'}",
                     callback_data=f"{CBT.SWITCH}:BlockList:blockDelivery"))\
-        .add(Button(f"Блокировать авто-ответ "
+        .add(Button(f"Блокировать автоответ "
                     f"{'🟢' if int(cardinal.MAIN_CFG['BlockList']['blockResponse']) else '🔴'}",
                     callback_data=f"{CBT.SWITCH}:BlockList:blockResponse"))\
         .add(Button(f"Не уведомлять о новых сообщениях "
@@ -227,7 +227,7 @@ def commands_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup
     keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AR_BTNS_AMOUNT, len(commands),
                                             len(cardinal.RAW_AR_CFG.sections()), CBT.CMD_LIST)
 
-    keyboard.add(Button("🤖 В настройки авто-ответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
+    keyboard.add(Button("🤖 В настройки автоответчика", callback_data=f"{CBT.CATEGORY}:autoResponse"))\
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
@@ -280,7 +280,7 @@ def products_files_list(offset: int) -> types.InlineKeyboardMarkup:
     keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.PF_BTNS_AMOUNT, len(files),
                                             len(os.listdir("storage/products")), CBT.PRODUCTS_FILES_LIST)
 
-    keyboard.add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
+    keyboard.add(Button("📦 В настройки автовыдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
@@ -334,7 +334,7 @@ def lots_list(cardinal: Cardinal, offset: int) -> types.InlineKeyboardMarkup:
     keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.AD_BTNS_AMOUNT, len(lots),
                                             len(cardinal.AD_CFG.sections()), CBT.AD_LOTS_LIST)
 
-    keyboard.add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery")) \
+    keyboard.add(Button("📦 В настройки автовыдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery")) \
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
@@ -357,7 +357,7 @@ def funpay_lots_list(cardinal: Cardinal, offset: int):
 
     keyboard.row(Button("➕ Ввести вручную", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{offset}"),
                  Button("🔄 Сканировать FunPay", callback_data=f"update_funpay_lots:{offset}"))\
-        .add(Button("📦 В настройки авто-выдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
+        .add(Button("📦 В настройки автовыдачи", callback_data=f"{CBT.CATEGORY}:autoDelivery"))\
         .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
@@ -402,7 +402,7 @@ def edit_lot(cardinal: Cardinal, lot_number: int, offset: int) -> types.InlineKe
                         callback_data=f"switch_lot:disableAutoRestore:{lot_number}:{offset}"),
                  Button(f"Деакт. {utils.bool_to_text(lot_obj.get('disableAutoDisable'), '🔴', '🟢')}",
                         callback_data=f"switch_lot:disableAutoDisable:{lot_number}:{offset}"))\
-        .row(Button("👾 Тест авто-выдачи", callback_data=f"test_auto_delivery:{lot_number}:{offset}"),
+        .row(Button("👾 Тест автовыдачи", callback_data=f"test_auto_delivery:{lot_number}:{offset}"),
              Button("🗑️ Удалить лот", callback_data=f"{CBT.DEL_AD_LOT}:{lot_number}:{offset}"))\
         .row(Button("◀️ Назад", callback_data=f"{CBT.AD_LOTS_LIST}:{offset}"),
              Button("🔄 Обновить", callback_data=f"{CBT.EDIT_AD_LOT}:{lot_number}:{offset}"))
@@ -417,11 +417,11 @@ def configs() -> types.InlineKeyboardMarkup:
     """
     keyboard = types.InlineKeyboardMarkup() \
         .add(Button("⤵️ Загрузить основной конфиг", callback_data=f"{CBT.DOWNLOAD_CFG}:main")) \
-        .add(Button("⤵️ Загрузить конфиг авто-ответа", callback_data=f"{CBT.DOWNLOAD_CFG}:autoResponse")) \
-        .add(Button("⤵️ Загрузить конфиг авто-выдачи", callback_data=f"{CBT.DOWNLOAD_CFG}:autoDelivery")) \
+        .add(Button("⤵️ Загрузить конфиг автоответа", callback_data=f"{CBT.DOWNLOAD_CFG}:autoResponse")) \
+        .add(Button("⤵️ Загрузить конфиг автовыдачи", callback_data=f"{CBT.DOWNLOAD_CFG}:autoDelivery")) \
         .add(Button("⤴️ Выгрузить основной конфиг", callback_data="upload_main_config")) \
-        .add(Button("⤴️ Выгрузить конфиг авто-ответа", callback_data="upload_auto_response_config")) \
-        .add(Button("⤴️ Выгрузить конфиг авто-выдачи", callback_data="upload_auto_delivery_config")) \
+        .add(Button("⤴️ Выгрузить конфиг автоответа", callback_data="upload_auto_response_config")) \
+        .add(Button("⤴️ Выгрузить конфиг автовыдачи", callback_data="upload_auto_delivery_config")) \
         .add(Button("◀️ Назад", callback_data=CBT.MAIN))
     return keyboard
 
@@ -590,19 +590,20 @@ def plugins_list(cardinal: Cardinal, offset: int):
         offset = 0
         plugins = list(cardinal.plugins.keys())[offset: offset + MENU_CFG.PLUGINS_BTNS_AMOUNT]
 
-    for plugin in plugins:
+    for uuid in plugins:
         #  CBT.EDIT_CMD:номер команды:смещение (для кнопки назад)
-        keyboard.add(Button(cardinal.plugins[plugin].name,
-                            callback_data=f"{CBT.EDIT_PLUGIN}:{plugin}:{offset}"))
+        keyboard.add(Button(f"{cardinal.plugins[uuid].name} {utils.bool_to_text(cardinal.plugins[uuid].enabled)}",
+                            callback_data=f"{CBT.EDIT_PLUGIN}:{uuid}:{offset}"))
 
     keyboard = utils.add_navigation_buttons(keyboard, offset, MENU_CFG.PLUGINS_BTNS_AMOUNT, len(plugins),
                                             len(list(cardinal.plugins.keys())), CBT.PLUGINS_LIST)
 
-    keyboard.add(Button("📋 В главное меню", callback_data=CBT.MAIN))
+    keyboard.add(Button("➕ Добавить плагин", callback_data=f"{CBT.UPLOAD_PLUGIN}:{offset}"))\
+        .add(Button("📋 В главное меню", callback_data=CBT.MAIN))
     return keyboard
 
 
-def edit_plugin(cardinal: Cardinal, uuid: str, offset: int):
+def edit_plugin(cardinal: Cardinal, uuid: str, offset: int, ask_to_delete: bool = False):
     """
     Создает клавиатуру управления плагином.
 
@@ -611,6 +612,8 @@ def edit_plugin(cardinal: Cardinal, uuid: str, offset: int):
     :param uuid: UUID плагина.
 
     :param offset: смещение списка плагинов.
+
+    :param ask_to_delete: вставить ли подтверждение удаления плагина?
 
     :return: экземпляр клавиатуры.
     """
@@ -624,7 +627,11 @@ def edit_plugin(cardinal: Cardinal, uuid: str, offset: int):
     if plugin_obj.settings_page:
         keyboard.add(Button("⚙️ Настройки", callback_data=f"{CBT.PLUGIN_SETTINGS}:{uuid}:{offset}"))
 
-    keyboard.add(Button("🗑️ Удалить", callback_data=f"{CBT.DELETE_PLUGIN}:{uuid}:{offset}"))
+    if not ask_to_delete:
+        keyboard.add(Button("🗑️ Удалить", callback_data=f"{CBT.DELETE_PLUGIN}:{uuid}:{offset}"))
+    else:
+        keyboard.row(Button("✅ Да", callback_data=f"{CBT.CONFIRM_DELETE_PLUGIN}:{uuid}:{offset}"),
+                     Button("❌ Нет", callback_data=f"{CBT.CANCEL_DELETE_PLUGIN}:{uuid}:{offset}"))
     keyboard.add(Button("◀️ Назад", callback_data=f"{CBT.PLUGINS_LIST}:{offset}"))
 
     return keyboard

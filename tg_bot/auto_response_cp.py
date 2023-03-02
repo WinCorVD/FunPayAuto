@@ -1,5 +1,5 @@
 """
-В данном модуле описаны функции для ПУ конфига авто-ответчика.
+В данном модуле описаны функции для ПУ конфига автоответчика.
 Модуль реализован в виде плагина.
 """
 
@@ -112,9 +112,9 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
                  Button("➕ Добавить еще", callback_data=CBT.ADD_CMD),
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_CMD}:{command_index}:{offset}"))
         logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
-                    f"$YELLOW[{raw_command}]$RESET в конфиг авто-ответчика.")
+                    f"$YELLOW[{raw_command}]$RESET в конфиг автоответчика.")
         bot.reply_to(m, f"✅ Добавлена новая секция "
-                        f"<code>[{utils.escape(raw_command)}]</code> в конфиг авто-ответчика.",
+                        f"<code>[{utils.escape(raw_command)}]</code> в конфиг автоответчика.",
                      allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
     def open_edit_command_cp(c: types.CallbackQuery):
@@ -288,7 +288,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
 
     def del_command(c: types.CallbackQuery):
         """
-        Удаляет команду из конфига авто-ответчика.
+        Удаляет команду из конфига автоответчика.
         """
         split = c.data.split(":")
         command_index, offset = int(split[1]), int(split[2])

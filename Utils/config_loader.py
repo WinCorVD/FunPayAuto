@@ -170,7 +170,7 @@ def load_auto_response_config(config_path: str):
 
 def load_raw_auto_response_config(config_path: str):
     """
-    Загружает исходный конфиг авто-ответчика.
+    Загружает исходный конфиг автоответчика.
 
     :param config_path: путь до конфига команд.
 
@@ -181,11 +181,11 @@ def load_raw_auto_response_config(config_path: str):
 
 def load_auto_delivery_config(config_path: str):
     """
-    Парсит и проверяет на правильность конфиг авто-выдачи.
+    Парсит и проверяет на правильность конфиг автовыдачи.
 
-    :param config_path: путь до конфига авто-выдачи.
+    :param config_path: путь до конфига автовыдачи.
 
-    :return: спарсеный конфиг товаров для авто-выдачи.
+    :return: спарсеный конфиг товаров для автовыдачи.
     """
     try:
         config = create_config_obj(config_path)

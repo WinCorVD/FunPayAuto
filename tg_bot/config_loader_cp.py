@@ -39,10 +39,10 @@ def init_config_loader_cp(cardinal: Cardinal, *args):
             text = "Основной конфиг."
         elif config_type == "autoResponse":
             path = "configs/auto_response.cfg"
-            text = "Конфиг авто-ответчика."
+            text = "Конфиг автоответчика."
         elif config_type == "autoDelivery":
             path = "configs/auto_delivery.cfg"
-            text = "Конфиг авто-выдачи."
+            text = "Конфиг автовыдачи."
         else:
             bot.answer_callback_query(c.id)
             return

@@ -34,7 +34,7 @@ class NotificationTypes:
     bot_start = "init"
     new_message = "newmsg"
     command = "command"
-    new_order = "neword"
+    new_order = "neworder"
     delivery = "delivery"
     lots_raise = "raise"
     other = "other"
@@ -186,23 +186,6 @@ def add_navigation_buttons(keyboard_obj: InlineKeyboardMarkup, curr_offset: int,
     return keyboard_obj
 
 
-def generate_help_text(commands_json: dict) -> str:
-    """
-    Генерирует текст справки.
-
-    :return: текст справки.
-    """
-    text = ""
-    for module in commands_json:
-        if not len(commands_json[module]):
-            continue
-
-        text += f"\n<b><u>{escape(module)}\n</u></b>"
-        for command in commands_json[module]:
-            text += f"    /{command} - <i>{escape(commands_json[module][command])}</i>\n"
-    return text.strip()
-
-
 def generate_profile_text(account: Account) -> str:
     return f"""Статистика аккаунта <b><i>{account.username}</i></b>
 
@@ -213,13 +196,11 @@ def generate_profile_text(account: Account) -> str:
 <i>Обновлено:</i>  <code>{time.strftime('%H:%M:%S', time.localtime(account.last_update))}</code>"""
 
 
-def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) -> str:
+def generate_lot_info_text(lot_obj: configparser.SectionProxy) -> str:
     """
     Генерирует текст с информацией о лоте.
 
-    :param lot_name: название лота.
-
-    :param lot_obj: секция лота в конфиге авто-выдачи.
+    :param lot_obj: секция лота в конфиге автовыдачи.
 
     :return: сгенерированный текст с информацией о лоте.
     """
@@ -234,7 +215,7 @@ def generate_lot_info_text(lot_name: str, lot_obj: configparser.SectionProxy) ->
         products_amount = Utils.cardinal_tools.count_products(f"storage/products/{lot_obj.get('productsFileName')}")
         products_amount = f"<code>{products_amount}</code>"
 
-    message = f"""<b>[{escape(lot_name)}]</b>\n
+    message = f"""<b>[{escape(lot_obj.name)}]</b>\n
 <b><i>Текст выдачи:</i></b> <code>{escape(lot_obj["response"])}</code>\n
 <b><i>Кол-во товаров: </i></b> {products_amount}\n
 <b><i>Файл с товарами: </i></b>{file_path}\n

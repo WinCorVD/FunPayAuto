@@ -12,7 +12,6 @@ from Utils import config_loader as cfg_loader, exceptions as excs, cardinal_tool
 from telebot.types import InlineKeyboardButton as Button
 from tg_bot import utils, keyboards, CBT
 from telebot import types
-import traceback
 import logging
 import os
 
@@ -30,11 +29,11 @@ def check_file(tg: TGBot, msg: types.Message) -> bool:
 
     :return: True, если все ок, False, если файл проверку не прошел.
     """
-    tg.clear_user_state(msg.chat.id, msg.from_user.id, True)
     if not msg.document:
         tg.bot.send_message(msg.chat.id, "❌ Файл не обнаружен.")
         return False
-    if not any((msg.document.file_name.endswith(".cfg"), msg.document.file_name.endswith(".txt"))):
+    if not any((msg.document.file_name.endswith(".cfg"), msg.document.file_name.endswith(".txt"),
+                msg.document.file_name.endswith(".py"))):
         tg.bot.send_message(msg.chat.id, "❌ Файл должен быть текстовым.")
         return False
     if msg.document.file_size >= 20971520:
@@ -43,7 +42,8 @@ def check_file(tg: TGBot, msg: types.Message) -> bool:
     return True
 
 
-def download_file(tg: TGBot, msg: types.Message, file_name: str = "temp_file.txt") -> bool:
+def download_file(tg: TGBot, msg: types.Message, file_name: str = "temp_file.txt",
+                  custom_path: str = "") -> bool:
     """
     Скачивает выгруженный файл и сохраняет его в папку storage/cache/.
 
@@ -52,6 +52,8 @@ def download_file(tg: TGBot, msg: types.Message, file_name: str = "temp_file.txt
     :param msg: экземпляр сообщения.
 
     :param file_name: название сохраненного файла.
+
+    :param custom_path: кастомный путь (если надо сохранить не в storage/cache/).
 
     :return: True, если все ок, False, при ошибке.
     """
@@ -65,228 +67,210 @@ def download_file(tg: TGBot, msg: types.Message, file_name: str = "temp_file.txt
         logger.debug("------TRACEBACK------", exc_info=True)
         return False
 
-    with open(f"storage/cache/{file_name}", "wb") as new_file:
+    path = f"storage/cache/{file_name}" if not custom_path else os.path.join(custom_path, file_name)
+    with open(path, "wb") as new_file:
         new_file.write(file)
     return True
-
-
-def upload_products_file(cardinal: Cardinal, msg: types.Message):
-    """
-    Загружает файл с товарами.
-
-    :param cardinal: экземпляр кардинала.
-
-    :param msg: экземпляр сообщения.
-    """
-    tg = cardinal.telegram
-    bot = tg.bot
-    if not check_file(tg, msg):
-        return
-    if not download_file(tg, msg, "temp_products_file.txt"):
-        return
-
-    bot.send_message(msg.chat.id, "🔁 Проверяю валидность файла...")
-    try:
-        with open("storage/cache/temp_products_file.txt", "r", encoding="utf-8") as f:
-            text = f.read()
-    except:
-        bot.send_message(msg.chat.id,
-                         "❌ Произошла ошибка при обработке файла с товарами. Подробнее в файле "
-                         "<code>logs/log.log</code>.", parse_mode="HTML")
-        logger.debug("------TRACEBACK------", exc_info=True)
-        return
-
-    try:
-        products_count = cardinal_tools.count_products("storage/cache/temp_products_file.txt")
-        file_name = msg.document.file_name
-        with open(f"storage/products/{file_name}", "w", encoding="utf-8") as f:
-            f.write(text)
-    except:
-        bot.send_message(msg.chat.id,
-                         "❌ Произошла ошибка при сохранении файла с товарами. Подробнее в файле "
-                         "<code>logs/log.log</code>.", parse_mode="HTML")
-        logger.debug("------TRACEBACK------", exc_info=True)
-        return
-    file_number = os.listdir("storage/products").index(file_name)
-    keyboard = types.InlineKeyboardMarkup() \
-        .add(Button("✏️ Редактировать файл", callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{file_number}:0"))
-    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
-                f"загрузил в бота файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
-    bot.send_message(msg.chat.id,
-                     f"✅ Файл с товарами <code>storage/products/{file_name}</code> успешно загружен. "
-                     f"Товаров в файле: <code>{products_count}.</code>",
-                     parse_mode="HTML", reply_markup=keyboard)
-
-
-def upload_auto_response_config(cardinal: Cardinal, msg: types.Message):
-    """
-    Загружает, проверяет и устанавливает конфиг авто-выдачи.
-
-    :param cardinal: экземпляр кардинала.
-
-    :param msg: экземпляр сообщения.
-    """
-    tg = cardinal.telegram
-    bot = tg.bot
-    if not check_file(tg, msg):
-        return
-    if not download_file(tg, msg, "temp_auto_response.cfg"):
-        return
-
-    bot.send_message(msg.chat.id, "🔁 Проверяю валидность файла...")
-    try:
-        new_config = cfg_loader.load_auto_response_config("storage/cache/temp_auto_response.cfg")
-        raw_new_config = cfg_loader.load_raw_auto_response_config("storage/cache/temp_auto_response.cfg")
-    except excs.ConfigParseError as e:
-        bot.send_message(msg.chat.id, f"❌ Произошла ошибка при обработке конфига авто-выдачи: "
-                                      f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
-        return
-    except UnicodeDecodeError:
-        bot.send_message(msg.chat.id, "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
-                                      "файла = <code>UTF-8</code>, а формат конца строк = <code>LF</code>.",
-                         parse_mode="HTML")
-        return
-    except:
-        bot.send_message(msg.chat.id,
-                         "❌ Произошла ошибка при проверке конфига авто-выдачи. Подробнее в файле "
-                         "<code>logs/log.log</code>", parse_mode="HTML")
-        logger.debug("------TRACEBACK------", exc_info=True)
-        return
-
-    cardinal.RAW_AR_CFG = raw_new_config
-    cardinal.AR_CFG = new_config
-    cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
-    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
-                f"загрузил в бота и установил конфиг авто-ответчика.")
-    bot.send_message(msg.chat.id, "✅ Конфиг авто-ответчика успешно применен.")
-
-
-def upload_auto_delivery_config(cardinal: Cardinal, msg: types.Message):
-    """
-    Загружает, проверяет и устанавливает конфиг авто-выдачи.
-
-    :param cardinal: экземпляр кардинала.
-
-    :param msg: экземпляр сообщения.
-    """
-    tg = cardinal.telegram
-    bot = tg.bot
-    if not check_file(tg, msg):
-        return
-    if not download_file(tg, msg, "temp_auto_delivery.cfg"):
-        return
-
-    bot.send_message(msg.chat.id, "🔁 Проверяю валидность файла...")
-    try:
-        new_config = cfg_loader.load_auto_delivery_config("storage/cache/temp_auto_delivery.cfg")
-    except excs.ConfigParseError as e:
-        bot.send_message(msg.chat.id, f"❌ Произошла ошибка при обработке конфига авто-выдачи: "
-                                      f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
-        return
-    except UnicodeDecodeError:
-        bot.send_message(msg.chat.id, "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
-                                      "файла = <code>UTF-8</code>, а формат конца строк = <code>LF</code>.",
-                         parse_mode="HTML")
-        return
-    except:
-        bot.send_message(msg.chat.id,
-                         "❌ Произошла ошибка при проверке конфига авто-выдачи. Подробнее в файле "
-                         "<code>logs/log.log</code>", parse_mode="HTML")
-        logger.debug("------TRACEBACK------", exc_info=True)
-        return
-
-    cardinal.AD_CFG = new_config
-    cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
-    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
-                f"загрузил в бота и установил конфиг авто-выдачи.")
-    bot.send_message(msg.chat.id, "✅ Конфиг авто-выдачи успешно применен.")
-
-
-def upload_main_config(cardinal: Cardinal, msg: types.Message):
-    """
-    Загружает и проверяет основной конфиг.
-
-    :param cardinal: экземпляр кардинала.
-
-    :param msg: экземпляр сообщения.
-    """
-    tg = cardinal.telegram
-    bot = tg.bot
-    if not check_file(tg, msg):
-        return
-    if not download_file(tg, msg, "temp_main.cfg"):
-        return
-
-    bot.send_message(msg.chat.id, "🔁 Проверяю валидность файла...")
-    try:
-        new_config = cfg_loader.load_main_config("storage/cache/temp_main.cfg")
-    except excs.ConfigParseError as e:
-        bot.send_message(msg.chat.id, f"❌ Произошла ошибка при обработке конфига авто-выдачи: "
-                                      f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
-        return
-    except UnicodeDecodeError:
-        bot.send_message(msg.chat.id, "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
-                                      "файла = <code>UTF-8</code>, а формат конца строк = <code>LF</code>.",
-                         parse_mode="HTML")
-        return
-    except:
-        bot.send_message(msg.chat.id,
-                         "❌ Произошла ошибка при проверке конфига авто-выдачи. Подробнее в файле "
-                         "<code>logs/log.log</code>", parse_mode="HTML")
-        logger.debug("------TRACEBACK------", exc_info=True)
-        return
-
-    cardinal.save_config(new_config, "configs/_main.cfg")
-    logger.info(f"Пользователь $MAGENTA{msg.from_user.username} (id: {msg.from_user.id})$RESET "
-                f"загрузил в бота основной конфиг.")
-    bot.send_message(msg.chat.id, "✅ Основной конфиг успешно загружен. \n"
-                                  "Необходимо перезагрузить бота, что бы применить изменения. \n"
-                                  "Любое изменение основного конфига через переключатели на ПУ отменит все изменения.")
 
 
 def init_uploader(cardinal: Cardinal):
     tg = cardinal.telegram
     bot = tg.bot
 
-    def main(msg: types.Message):
-        if tg.check_state(msg.chat.id, msg.from_user.id, CBT.UPLOAD_PRODUCTS_FILE):
-            upload_products_file(cardinal, msg)
-        elif tg.check_state(msg.chat.id, msg.from_user.id, "upload_auto_response_config"):
-            upload_auto_response_config(cardinal, msg)
-        elif tg.check_state(msg.chat.id, msg.from_user.id, "upload_auto_delivery_config"):
-            upload_auto_delivery_config(cardinal, msg)
-        elif tg.check_state(msg.chat.id, msg.from_user.id, "upload_main_config"):
-            upload_main_config(cardinal, msg)
-
-    def act_upload_products_file(call: types.CallbackQuery):
-        result = bot.send_message(call.message.chat.id, "Отправьте мне файл с товарами.",
+    def act_upload_products_file(c: types.CallbackQuery):
+        result = bot.send_message(c.message.chat.id, "Отправьте мне файл с товарами.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
-        tg.set_user_state(call.message.chat.id, result.id, call.from_user.id, CBT.UPLOAD_PRODUCTS_FILE)
-        bot.answer_callback_query(call.id)
+        tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.UPLOAD_PRODUCTS_FILE)
+        bot.answer_callback_query(c.id)
 
-    def act_upload_main_config(call: types.CallbackQuery):
-        result = bot.send_message(call.message.chat.id, "Отправьте мне основной конфиг.",
+    def upload_products_file(m: types.Message):
+        """
+        Загружает файл с товарами.
+        """
+        tg.clear_user_state(m.chat.id, m.from_user.id, True)
+        if not check_file(tg, m):
+            return
+        if not download_file(tg, m, m.document.file_name,
+                             custom_path=f"storage/products"):
+            return
+
+        try:
+            products_count = cardinal_tools.count_products(f"storage/products/{utils.escape(m.document.file_name)}")
+        except:
+            bot.send_message(m.chat.id,
+                             "❌ Произошла ошибка при подсчете товаров. Подробнее в файле "
+                             "<code>logs/log.log</code>.", parse_mode="HTML")
+            logger.debug("------TRACEBACK------", exc_info=True)
+            return
+
+        file_number = os.listdir("storage/products").index(m.document.file_name)
+
+        keyboard = types.InlineKeyboardMarkup() \
+            .add(Button("✏️ Редактировать файл", callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{file_number}:0"))
+
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET "
+                    f"загрузил в бота файл с товарами $YELLOWstorage/products/{m.document.file_name}$RESET.")
+
+        bot.send_message(m.chat.id,
+                         f"✅ Файл с товарами <code>storage/products/{m.document.file_name}</code> успешно загружен. "
+                         f"Товаров в файле: <code>{products_count}.</code>",
+                         parse_mode="HTML", reply_markup=keyboard)
+
+    def act_upload_main_config(c: types.CallbackQuery):
+        result = bot.send_message(c.message.chat.id, "Отправьте мне основной конфиг.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
-        tg.set_user_state(call.message.chat.id, result.id, call.from_user.id, "upload_main_config")
-        bot.answer_callback_query(call.id)
+        tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, "upload_main_config")
+        bot.answer_callback_query(c.id)
 
-    def act_upload_auto_response_config(call: types.CallbackQuery):
-        result = bot.send_message(call.message.chat.id, "Отправьте мне конфиг авто-ответчика.",
+    def upload_main_config(m: types.Message):
+        """
+        Загружает и проверяет основной конфиг.
+        """
+        tg.clear_user_state(m.chat.id, m.from_user.id, True)
+        if not check_file(tg, m):
+            return
+        if not download_file(tg, m, "temp_main.cfg"):
+            return
+
+        bot.send_message(m.chat.id, "🔁 Проверяю валидность файла...")
+        try:
+            new_config = cfg_loader.load_main_config("storage/cache/temp_main.cfg")
+        except excs.ConfigParseError as e:
+            bot.send_message(m.chat.id, f"❌ Произошла ошибка при обработке основного конфига: "
+                                        f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
+            return
+        except UnicodeDecodeError:
+            bot.send_message(m.chat.id,
+                             "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
+                             "файла = <code>UTF-8</code>, а формат конца строк = <code>LF</code>.",
+                             parse_mode="HTML")
+            return
+        except:
+            bot.send_message(m.chat.id,
+                             "❌ Произошла ошибка при проверке конфига автовыдачи. Подробнее в файле "
+                             "<code>logs/log.log</code>", parse_mode="HTML")
+            logger.debug("------TRACEBACK------", exc_info=True)
+            return
+
+        cardinal.save_config(new_config, "configs/_main.cfg")
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET "
+                    f"загрузил в бота основной конфиг.")
+        bot.send_message(m.chat.id, "✅ Основной конфиг успешно загружен. \n"
+                                    "Необходимо перезагрузить бота, что бы применить изменения. \n"
+                                    "Любое изменение основного конфига через переключатели на ПУ отменит все изменения.")
+
+    def act_upload_auto_response_config(c: types.CallbackQuery):
+        result = bot.send_message(c.message.chat.id, "Отправьте мне конфиг автоответчика.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
-        tg.set_user_state(call.message.chat.id, result.id, call.from_user.id, "upload_auto_response_config")
-        bot.answer_callback_query(call.id)
+        tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, "upload_auto_response_config")
+        bot.answer_callback_query(c.id)
 
-    def act_upload_auto_delivery_config(call: types.CallbackQuery):
-        result = bot.send_message(call.message.chat.id, "Отправьте мне конфиг авто-выдачи.",
+    def upload_auto_response_config(m: types.Message):
+        """
+        Загружает, проверяет и устанавливает конфиг автовыдачи.
+        """
+        tg.clear_user_state(m.chat.id, m.from_user.id, True)
+        if not check_file(tg, m):
+            return
+        if not download_file(tg, m, "temp_auto_response.cfg"):
+            return
+
+        bot.send_message(m.chat.id, "🔁 Проверяю валидность файла...")
+        try:
+            new_config = cfg_loader.load_auto_response_config("storage/cache/temp_auto_response.cfg")
+            raw_new_config = cfg_loader.load_raw_auto_response_config("storage/cache/temp_auto_response.cfg")
+        except excs.ConfigParseError as e:
+            bot.send_message(m.chat.id, f"❌ Произошла ошибка при обработке конфига автоответчика: "
+                                        f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
+            return
+        except UnicodeDecodeError:
+            bot.send_message(m.chat.id,
+                             "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
+                             "файла = <code>UTF-8</code>, а формат конца строк = <code>LF</code>.",
+                             parse_mode="HTML")
+            return
+        except:
+            bot.send_message(m.chat.id,
+                             "❌ Произошла ошибка при проверке конфига автоответчика. Подробнее в файле "
+                             "<code>logs/log.log</code>", parse_mode="HTML")
+            logger.debug("------TRACEBACK------", exc_info=True)
+            return
+
+        cardinal.RAW_AR_CFG, cardinal.AR_CFG = raw_new_config, new_config
+        cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
+
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET "
+                    f"загрузил в бота и установил конфиг автоответчика.")
+        bot.send_message(m.chat.id, "✅ Конфиг автоответчика успешно применен.")
+
+    def act_upload_auto_delivery_config(c: types.CallbackQuery):
+        result = bot.send_message(c.message.chat.id, "Отправьте мне конфиг автовыдачи.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
-        tg.set_user_state(call.message.chat.id, result.id, call.from_user.id, "upload_auto_delivery_config")
-        bot.answer_callback_query(call.id)
+        tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, "upload_auto_delivery_config")
+        bot.answer_callback_query(c.id)
 
-    tg.msg_handler(main, content_types=["document"])
+    def upload_auto_delivery_config(m: types.Message):
+        """
+        Загружает, проверяет и устанавливает конфиг автовыдачи.
+        """
+        tg.clear_user_state(m.chat.id, m.from_user.id, True)
+        if not check_file(tg, m):
+            return
+        if not download_file(tg, m, "temp_auto_delivery.cfg"):
+            return
+
+        bot.send_message(m.chat.id, "🔁 Проверяю валидность файла...")
+        try:
+            new_config = cfg_loader.load_auto_delivery_config("storage/cache/temp_auto_delivery.cfg")
+        except excs.ConfigParseError as e:
+            bot.send_message(m.chat.id, f"❌ Произошла ошибка при обработке конфига автовыдачи: "
+                                        f"<code>{utils.escape(str(e))}</code>", parse_mode="HTML")
+            return
+        except UnicodeDecodeError:
+            bot.send_message(m.chat.id,
+                             "Произошла ошибка при расшифровке <code>UTF-8</code>. Убедитесь, что кодировка "
+                             "файла = <code>UTF-8</code>, а формат конца строк = <code>LF</code>.",
+                             parse_mode="HTML")
+            return
+        except:
+            bot.send_message(m.chat.id,
+                             "❌ Произошла ошибка при проверке конфига автовыдачи. Подробнее в файле "
+                             "<code>logs/log.log</code>", parse_mode="HTML")
+            logger.debug("------TRACEBACK------", exc_info=True)
+            return
+
+        cardinal.AD_CFG = new_config
+        cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
+
+        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET "
+                    f"загрузил в бота и установил конфиг автовыдачи.")
+        bot.send_message(m.chat.id, "✅ Конфиг автовыдачи успешно применен.")
+
+    def upload_plugin(m: types.Message):
+        offset = tg.get_user_state(m.chat.id, m.from_user.id)["data"]["offset"]
+        if not check_file(tg, m):
+            return
+        if not download_file(tg, m, f"{utils.escape(m.document.file_name)}",
+                             custom_path=f"plugins"):
+            return
+
+        keyboard = types.InlineKeyboardMarkup() \
+            .add(Button("◀️Назад", callback_data=f"{CBT.PLUGINS_LIST}:{offset}"))
+        bot.send_message(m.chat.id,
+                         f"✅ Плагин <code>{utils.escape(m.document.file_name)}</code> успешно загружен.\n\n"
+                         f"⚠️Чтобы плагин активировался, <u><b>перезагрузите FPC!</b></u> (/restart)",
+                         parse_mode="HTML", reply_markup=keyboard)
+
     tg.cbq_handler(act_upload_products_file, lambda c: c.data == CBT.UPLOAD_PRODUCTS_FILE)
     tg.cbq_handler(act_upload_auto_response_config, lambda c: c.data == "upload_auto_response_config")
     tg.cbq_handler(act_upload_auto_delivery_config, lambda c: c.data == "upload_auto_delivery_config")
     tg.cbq_handler(act_upload_main_config, lambda c: c.data == "upload_main_config")
+
+    tg.file_handler(CBT.UPLOAD_PRODUCTS_FILE, upload_products_file)
+    tg.file_handler("upload_auto_response_config", upload_auto_response_config)
+    tg.file_handler("upload_auto_delivery_config", upload_auto_delivery_config)
+    tg.file_handler("upload_main_config", upload_main_config)
+    tg.file_handler(CBT.UPLOAD_PLUGIN, upload_plugin)
 
 
 BIND_TO_PRE_INIT = [init_uploader]

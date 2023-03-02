@@ -54,7 +54,7 @@ class ValueNotValidError(Exception):
 
 class ProductsFileNotFoundError(Exception):
     """
-    Исключение, которое райзится, если при обработке конфига авто-выдачи не был найден указанный файл с товарами.
+    Исключение, которое райзится, если при обработке конфига автовыдачи не был найден указанный файл с товарами.
     """
     def __init__(self, products_file_path: str):
         self.products_file_path = products_file_path
@@ -65,7 +65,7 @@ class ProductsFileNotFoundError(Exception):
 
 class NoProductsError(Exception):
     """
-    Исключение, которое райзится, если в файле с товарами, указанном в конфиге авто-выдачи, нет товаров.
+    Исключение, которое райзится, если в файле с товарами, указанном в конфиге автовыдачи, нет товаров.
     """
     def __init__(self, products_file_path: str):
         self.products_file_path = products_file_path
@@ -120,7 +120,7 @@ class SectionNotFoundError(Exception):
 
 class SubCommandAlreadyExists(Exception):
     """
-    Исключение, которое райзится, если при обработке конфига авто-ответчика была найден дубликат суб-команды.
+    Исключение, которое райзится, если при обработке конфига автоответчика была найден дубликат суб-команды.
     """
     def __init__(self, command: str):
         self.command = command

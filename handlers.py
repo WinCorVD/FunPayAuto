@@ -16,7 +16,6 @@ from Utils import cardinal_tools
 import configparser
 import time
 import logging
-import traceback
 from threading import Thread
 
 import re
@@ -146,7 +145,7 @@ def test_auto_delivery_handler(cardinal: Cardinal, event: NewMessageEvent) -> No
         return
     split = event.message.text.split(" ")
     if len(split) < 2:
-        logger.warning("Одноразовый ключ авто-выдачи не обнаружен.")
+        logger.warning("Одноразовый ключ автовыдачи не обнаружен.")
         return
 
     key = event.message.text.split(" ")[1].strip()
@@ -188,7 +187,7 @@ def send_categories_raised_notification_handler(cardinal: Cardinal, game_id: int
 # Изменен список ордеров (REGISTER_TO_ORDERS_LIST_CHANGED)
 def get_lot_config_by_name(cardinal: Cardinal, name: str) -> configparser.SectionProxy | None:
     """
-    Ищет секцию лота в конфиге авто-выдачи.
+    Ищет секцию лота в конфиге автовыдачи.
 
     :param cardinal: экземпляр кардинала.
 
@@ -307,10 +306,10 @@ def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> 
     Обертка для deliver_product(), обрабатывающая ошибки.
     """
     if event.order.buyer_username in cardinal.block_list and cardinal.MAIN_CFG["BlockList"].getboolean("blockDelivery"):
-        logger.info(f"Пользователь {event.order.buyer_username} находится в ЧС и включена блокировка авто-выдачи. "
+        logger.info(f"Пользователь {event.order.buyer_username} находится в ЧС и включена блокировка автовыдачи. "
                     f"$YELLOW(ID: {event.order.id})$RESET")
         if cardinal.telegram:
-            text = f"Пользователь {event.order.buyer_username} находится в ЧС и включена блокировка авто-выдачи."
+            text = f"Пользователь {event.order.buyer_username} находится в ЧС и включена блокировка автовыдачи."
             Thread(target=cardinal.telegram.send_notification, args=(text, ),
                    kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
         return
@@ -325,11 +324,11 @@ def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> 
             break
 
     if delivery_obj is None:
-        logger.info(f"Лот \"{event.order.title}\" не обнаружен в конфиге авто-выдачи.")
+        logger.info(f"Лот \"{event.order.title}\" не обнаружен в конфиге автовыдачи.")
         return
 
     if delivery_obj.get("disable") is not None and delivery_obj.getboolean("disable"):
-        logger.info(f"Для данного лота отключена авто-выдача. $YELLOW(ID: {event.order.id})$RESET")
+        logger.info(f"Для данного лота отключена автовыдача. $YELLOW(ID: {event.order.id})$RESET")
         return
 
     cardinal.run_handlers(cardinal.pre_delivery_handlers, (cardinal, event, config_lot_name))
@@ -420,31 +419,31 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
 
         # Если лот уже деактивирован
         if lot.id not in lots_ids:
-            # и не найден в конфиге авто-выдачи (глобальное авто-восстановление включено)
+            # и не найден в конфиге автовыдачи (глобальное автовосстановление включено)
             if config_obj is None:
                 if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore"):
                     current_task = 1
 
-            # и найден в конфиге авто-выдачи
+            # и найден в конфиге автовыдачи
             else:
-                # и глобальное авто-восстановление вкл. + не выключено в самом лоте в конфиге авто-выдачи
+                # и глобальное автовосстановление вкл. + не выключено в самом лоте в конфиге автовыдачи
                 if cardinal.MAIN_CFG["FunPay"].getboolean("autoRestore") and \
                         config_obj.get("disableAutoRestore") in ["0", None]:
-                    # если глобальная авто-деактивация выключена - восстанавливаем.
+                    # если глобальная автодеактивация выключена - восстанавливаем.
                     if not cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"):
                         current_task = 1
-                    # если глобальная авто-деактивация включена - восстанавливаем только если есть товары.
+                    # если глобальная автодеактивация включена - восстанавливаем только если есть товары.
                     else:
                         if check_lot_products_count(config_obj):
                             current_task = 1
 
         # Если же лот активен
         else:
-            # и найден в конфиге авто-выдачи
+            # и найден в конфиге автовыдачи
             if config_obj:
                 products_count = check_lot_products_count(config_obj)
-                # и все условия выполнены: нет товаров + включено глобальная авто-деактивация + она не выключена в
-                # самом лоте в конфига авто-выдачи - отключаем.
+                # и все условия выполнены: нет товаров + включено глобальная автодеактивация + она не выключена в
+                # самом лоте в конфига автовыдачи - отключаем.
                 if all((not products_count, cardinal.MAIN_CFG["FunPay"].getboolean("autoDisable"),
                         config_obj.get("disableAutoDisable") in ["0", None])):
                     current_task = -1

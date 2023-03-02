@@ -1,12 +1,16 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
+
+import Utils.exceptions
+
 if TYPE_CHECKING:
     from configparser import ConfigParser
 
-from tg_bot import auto_response_cp, config_loader_cp, auto_delivery_cp, templates_cp, file_uploader
+from tg_bot import auto_response_cp, config_loader_cp, auto_delivery_cp, templates_cp, plugins_cp, file_uploader
+from types import ModuleType
+from uuid import UUID
 import importlib.util
 import configparser
-import traceback
 import requests
 import datetime
 import logging
@@ -30,16 +34,15 @@ logger = logging.getLogger("FPC")
 def check_proxy(proxy: dict) -> bool:
     logger.info("Выполняю проверку прокси...")
     try:
-        response = requests.get("https://api.myip.com", proxies=proxy, timeout=10.0)
-        print(response.status_code)
+        response = requests.get("http://ip-api.com/json/?fields=61439", proxies=proxy, timeout=10.0)
     except KeyboardInterrupt:
         return False
     except:
         logger.error("Не удалось подключиться к прокси. Убедитесь, что данные введены верно.")
-        logger.debug(traceback.format_exc())
+        logger.debug("------TRACEBACK------", exc_info=True)
         return False
     logger.info(f"Прокси успешно проверен! Запросы к FunPay будут отправлять с "
-                f"IP-адреса $YELLOW{response.json()['ip']}")
+                f"IP-адреса $YELLOW{response.json()['query']}")
     return True
 
 
@@ -49,6 +52,22 @@ def get_cardinal() -> None | Cardinal:
     """
     if hasattr(Cardinal, "instance"):
         return getattr(Cardinal, "instance")
+
+
+class PluginData:
+    def __init__(self, name: str, version: str, desc: str, credentials: str, uuid: str,
+                 path: str, plugin: ModuleType, settings_page: bool, enabled: bool):
+        self.name = name
+        self.version = version
+        self.description = desc
+        self.credits = credentials
+        self.uuid = uuid
+
+        self.path = path
+        self.plugin = plugin
+        self.settings_page = settings_page
+        self.commands = {}
+        self.enabled = enabled
 
 
 class Cardinal(object):
@@ -65,7 +84,7 @@ class Cardinal(object):
 
         self.instance_id = random.randint(0, 999999999)
 
-        self.delivery_tests = {}  # Одноразовые ключи для тестов авто-выдачи. {"ключ": "название лота"}
+        self.delivery_tests = {}  # Одноразовые ключи для тестов автовыдачи. {"ключ": "название лота"}
 
         # Конфиги
         self.MAIN_CFG = main_config
@@ -95,7 +114,7 @@ class Cardinal(object):
 
         self.running = False
         self.run_id = 0
-        self.start_time = 0
+        self.start_time = int(time.time())
 
         self.raise_time = {}  # Временные метки поднятия категорий {id игры: след. время поднятия}
         self.lots: list[FunPayAPI.types.Lot] = []  # Список лотов (при запуске FPC) (для восстановления / деактивации)
@@ -107,7 +126,7 @@ class Cardinal(object):
         self.current_lots_last_tag: str | None = None
         # Тег последнего event'а, после которого обновлялось состояние лотов.
         self.last_state_change_tag: str | None = None
-        self.block_list: list[str] = [] # ЧС.
+        self.block_list: list[str] = []  # ЧС.
 
         # Хэндлеры
         self.pre_init_handlers = []
@@ -151,6 +170,9 @@ class Cardinal(object):
             "BIND_TO_POST_LOTS_RAISE": self.post_lots_raise_handlers,
         }
 
+        self.plugins: dict[str, PluginData] = {}
+        self.disabled_plugins = cardinal_tools.load_disabled_plugins()
+
     def __init_account(self) -> None:
         """
         Инициализирует класс аккаунта (self.account)
@@ -169,7 +191,7 @@ class Cardinal(object):
             except:
                 logger.error("Произошла непредвиденная ошибка при получении данных аккаута. "
                              "Подробнее а файле logs/log.log")
-                logger.debug(traceback.format_exc())
+                logger.debug("------TRACEBACK------", exc_info=True)
             logger.warning("Повторю попытку через 2 секунды...")
             time.sleep(2)
 
@@ -199,9 +221,7 @@ class Cardinal(object):
         # Получаем категории аккаунта.
         while count:
             try:
-                user_lots_info = FunPayAPI.users.get_user(self.account.id,
-                                                          user_agent=self.MAIN_CFG["FunPay"]["user_agent"],
-                                                          proxy=self.proxy)
+                user_lots_info = self.account.get_user(self.account.id)
                 categories = user_lots_info.categories
                 lots = user_lots_info.lots
                 logger.info(f"$MAGENTAПолучил информацию о лотах аккаунта. Всего категорий: $YELLOW{len(categories)}.")
@@ -222,7 +242,7 @@ class Cardinal(object):
             except:
                 logger.error("Произошла непредвиденная ошибка при получении данных о лотах и категориях. "
                              "Подробнее а файле logs/log.log")
-                logger.debug(traceback.format_exc())
+                logger.debug("------TRACEBACK------", exc_info=True)
                 logger.warning("Повторю попытку через 2 секунды...")
                 time.sleep(2)
                 if not infinite_polling:
@@ -282,7 +302,7 @@ class Cardinal(object):
                 except:
                     logger.error(f"Не удалось получить ID игры, к которой относится категория \"{cat.title}\": "
                                  f"неизвестная ошибка.")
-                    logger.debug(traceback.format_exc())
+                    logger.debug("------TRACEBACK------", exc_info=True)
                     logger.warning("Повторю попытку через 2 секунды...")
                     time.sleep(2)
                     if not infinite_polling:
@@ -300,7 +320,7 @@ class Cardinal(object):
             self.lots_ids = [i.id for i in self.lots]
             logger.info(f"Кардинал обновил информацию об активных лотах "
                         f"$YELLOW({len(lots)})$RESET и категориях $YELLOW({len(categories)})$RESET. "
-                        f"Изменения применены к авто-восстановлению и авто-деактивации.")
+                        f"Изменения применены к автовосстановлению и автодеактивации.")
         if update_telegram_lots:
             self.telegram_lots = lots
             self.last_telegram_lots_update = datetime.datetime.now()
@@ -315,45 +335,6 @@ class Cardinal(object):
         """
         self.telegram = tg_bot.bot.TGBot(self)
         self.telegram.init()
-
-    def __add_handlers(self, plugin) -> None:
-        """
-        Добавляет хэндлеры из плагина.
-
-        :param plugin: модуль (плагин)
-        """
-        for name in self.handler_bind_var_names:
-            try:
-                functions = getattr(plugin, name)
-            except AttributeError:
-                continue
-            self.handler_bind_var_names[name].extend(functions)
-        logger.info(f"Хэндлеры из $YELLOW{plugin.__name__}.py$RESET зарегистрированы.")
-
-    def __load_plugins(self) -> None:
-        """
-        Загружает плагины из папки plugins.
-        """
-        if not os.path.exists("plugins"):
-            logger.warning("Папка с плагинами не обнаружена.")
-            return
-        plugins = [file for file in os.listdir("plugins") if file.endswith(".py")]
-        if not plugins:
-            logger.info("Плагины не обнаружены.")
-            return
-
-        sys.path.append("plugins")
-        for file in plugins:
-            try:
-                spec = importlib.util.spec_from_file_location(f"plugins.{file[:-3]}", f"plugins/{file}")
-                plugin = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(plugin)
-                logger.info(f"Плагин $YELLOW{file}$RESET загружен.")
-            except:
-                logger.error(f"Не удалось загрузить плагин {file}. Подробнее в файле logs/log.log.")
-                logger.debug(traceback.format_exc())
-                continue
-            self.__add_handlers(plugin)
 
     # Прочее
     def raise_lots(self) -> int:
@@ -391,7 +372,7 @@ class Cardinal(object):
                     logger.error(f"Произошла непредвиденная ошибка при попытке поднять категорию \"{cat.title}. "
                                  f"Подробнее в файле logs/log.log. "
                                  f"(следующая попытка для данной категории через 10 секунд.)")
-                    logger.debug(traceback.format_exc())
+                    logger.debug("------TRACEBACK------", exc_info=True)
                     next_time = int(time.time()) + 10
                 if next_time < next_call:
                     next_call = next_time
@@ -453,7 +434,7 @@ class Cardinal(object):
                         logger.info(f"Отправил сообщение в чат $YELLOW{msg.node_id}.")
                         break
                 except:
-                    logger.debug(traceback.format_exc())
+                    logger.debug("------TRACEBACK------", exc_info=True)
                 # if error in response
                 logger.warning(f"Произошла ошибка при отправке сообщения в чат $YELLOW{msg.node_id}.$RESET "
                                f"Подробнее в файле logs/log.log")
@@ -486,7 +467,7 @@ class Cardinal(object):
             except:
                 logger.error("Произошла непредвиденная ошибка при получении данных аккаута. "
                              "Подробнее а файле logs/log.log")
-                logger.debug(traceback.format_exc())
+                logger.debug("------TRACEBACK------", exc_info=True)
             attempts -= 1
             logger.warning("Повторю попытку через 2 секунды...")
             time.sleep(2)
@@ -521,10 +502,10 @@ class Cardinal(object):
         Запускает бесконечный цикл поднятия категорий (если autoRaise в _main.cfg == 1)
         """
         if not self.categories:
-            logger.info("$CYAN Цикл авто-поднятия не был запущен, т.к. на аккаунте не обнаружен лотов.")
+            logger.info("$CYAN Цикл автоподнятия не был запущен, т.к. на аккаунте не обнаружен лотов.")
             return
 
-        logger.info("$CYANЦикл авто-поднятия лотов запущен (это не значит, что авто-поднятие лотов включено).")
+        logger.info("$CYANЦикл автоподнятия лотов запущен (это не значит, что автоподнятие лотов включено).")
         while True:
             if not self.MAIN_CFG["FunPay"].getboolean("autoRaise"):
                 time.sleep(10)
@@ -548,18 +529,22 @@ class Cardinal(object):
 
     # Управление процессом
     def init(self):
-        self.__add_handlers(handlers)
-        self.__load_plugins()
+        self.add_handlers_from_plugin(handlers)
+        self.load_plugins()
+        self.add_handlers()
+
         self.block_list = cardinal_tools.load_block_list()
 
         if self.MAIN_CFG["Telegram"].getboolean("enabled"):
             self.__init_telegram()
-            for module in [auto_response_cp, auto_delivery_cp, config_loader_cp, templates_cp, file_uploader]:
-                self.__add_handlers(module)
+            for module in [auto_response_cp, auto_delivery_cp, config_loader_cp, templates_cp, plugins_cp,
+                           file_uploader]:
+                self.add_handlers_from_plugin(module)
 
         self.run_handlers(self.pre_init_handlers, (self, ))
 
         if self.MAIN_CFG["Telegram"].getboolean("enabled"):
+            self.telegram.setup_commands()
             Thread(target=self.telegram.run, daemon=True).start()
 
         self.__init_account()
@@ -595,22 +580,6 @@ class Cardinal(object):
         return result
 
     @staticmethod
-    def run_handlers(handlers_list: list[Callable], args) -> None:
-        """
-        Выполняет функции из списка handlers.
-
-        :param handlers_list: Список функций.
-
-        :param args: аргументы для функций.
-        """
-        for func in handlers_list:
-            try:
-                func(*args)
-            except:
-                logger.error("Произошла ошибка при выполнении хэндлера. Подробнее в файле logs/log.log.")
-                logger.debug(traceback.format_exc())
-
-    @staticmethod
     def save_config(config: configparser.ConfigParser, file_path: str) -> None:
         """
         Сохраняет конфиг в указанный файл.
@@ -621,3 +590,131 @@ class Cardinal(object):
         """
         with open(file_path, "w", encoding="utf-8") as f:
             config.write(f)
+
+    # Загрузка плагинов
+    @staticmethod
+    def is_uuid_valid(uuid: str):
+        try:
+            uuid_obj = UUID(uuid, version=4)
+        except ValueError:
+            return False
+        return str(uuid_obj) == uuid
+
+    @staticmethod
+    def load_plugin(from_file: str) -> tuple:
+        spec = importlib.util.spec_from_file_location(f"plugins.{from_file[:-3]}", f"plugins/{from_file}")
+        plugin = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plugin)
+
+        fields = ["NAME", "VERSION", "DESCRIPTION", "CREDITS", "SETTINGS_PAGE", "UUID"]
+        result = {}
+
+        for i in fields:
+            try:
+                if i == "SETTINGS_PAGE":
+                    value = bool(getattr(plugin, i))
+                else:
+                    value = str(getattr(plugin, i))
+            except AttributeError:
+                raise Utils.exceptions.FieldNotExistsError(i, from_file)
+            result[i] = value
+
+        return plugin, result
+
+    def load_plugins(self):
+        if not os.path.exists("plugins"):
+            logger.warning("Папка с плагинами не обнаружена.")
+            return
+        plugins = [file for file in os.listdir("plugins") if file.endswith(".py")]
+        if not plugins:
+            logger.info("Плагины не обнаружены.")
+            return
+
+        sys.path.append("plugins")
+        for file in plugins:
+            try:
+                plugin, data = self.load_plugin(file)
+            except:
+                logger.error(f"Не удалось загрузить плагин {file}. Подробнее в файле logs/log.log.")
+                logger.debug("------TRACEBACK------", exc_info=True)
+                continue
+
+            if not self.is_uuid_valid(data["UUID"]):
+                logger.error(f"Не удалось загрузить плагин {file}. Невалидный UUID.")
+                continue
+
+            if data["UUID"] in self.plugins:
+                logger.error(f"UUID {data['UUID']} ({data['NAME']}) уже зарегистрирован.")
+                continue
+
+            plugin_data = PluginData(data["NAME"], data["VERSION"], data["DESCRIPTION"], data["CREDITS"], data["UUID"],
+                                     f"plugins/{file}", plugin, data["SETTINGS_PAGE"],
+                                     False if data["UUID"] in self.disabled_plugins else True)
+
+            self.plugins[data["UUID"]] = plugin_data
+
+    def add_handlers_from_plugin(self, plugin, uuid: str | None = None):
+        """
+        Добавляет хэндлеры из плагина.
+
+        :param plugin: модуль (плагин).
+
+        :param uuid: UUID плагина (None для встроенных хэндлеров).
+        """
+        for name in self.handler_bind_var_names:
+            try:
+                functions = getattr(plugin, name)
+            except AttributeError:
+                continue
+            for func in functions:
+                func.plugin_uuid = uuid
+            self.handler_bind_var_names[name].extend(functions)
+        logger.info(f"Хэндлеры из $YELLOW{plugin.__name__}.py$RESET зарегистрированы.")
+
+    def add_handlers(self):
+        for i in self.plugins:
+            plugin = self.plugins[i].plugin
+            self.add_handlers_from_plugin(plugin, i)
+
+    def run_handlers(self, handlers_list: list[Callable], args) -> None:
+        """
+        Выполняет функции из списка handlers.
+
+        :param handlers_list: Список функций.
+
+        :param args: аргументы для функций.
+        """
+        for func in handlers_list:
+            try:
+                if getattr(func, "plugin_uuid") is None or self.plugins[getattr(func, "plugin_uuid")].enabled:
+                    func(*args)
+            except:
+                logger.error("Произошла ошибка при выполнении хэндлера. Подробнее в файле logs/log.log.")
+                logger.debug("------TRACEBACK------", exc_info=True)
+
+    def add_commands(self, uuid: str, commands: list[tuple[str, str, bool]]):
+        """
+        Добавляет команды в список команд плагина.
+        [
+            ("команда1", "описание команды", Добавлять ли в меню команд (True / False)),
+            ("команда2", "описание команды", Добавлять ли в меню команд (True / False))
+        ]
+
+        :param uuid: UUID плагина.
+        :param commands: список команд (без "/")
+        """
+        if uuid not in self.plugins:
+            return
+
+        for i in commands:
+            self.plugins[uuid].commands[i[0]] = i[1]
+            if i[2] and self.telegram:
+                self.telegram.add_command_to_menu(i[0], i[1])
+
+    def toggle_plugin(self, uuid):
+        self.plugins[uuid].enabled = not self.plugins[uuid].enabled
+        if self.plugins[uuid].enabled and uuid in self.disabled_plugins:
+            self.disabled_plugins.remove(uuid)
+        elif not self.plugins[uuid].enabled and uuid not in self.disabled_plugins:
+            self.disabled_plugins.append(uuid)
+        cardinal_tools.cache_disabled_plugins(self.disabled_plugins)

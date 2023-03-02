@@ -1,5 +1,5 @@
 """
-В данном модуле описаны функции для ПУ конфига авто-выдачи.
+В данном модуле описаны функции для ПУ конфига автовыдачи.
 Модуль реализован в виде плагина.
 """
 
@@ -16,7 +16,6 @@ from telebot import types
 
 from Utils import cardinal_tools
 
-import traceback
 import itertools
 import random
 import string
@@ -33,8 +32,8 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
 
     def check_ad_lot_exists(lot_index: int, message_obj: types.Message, reply_mode: bool = True) -> bool:
         """
-        Проверяет, существует ли лот с авто-выдачей с переданным индексом.
-        Если лота не существует - отправляет сообщение с кнопкой обновления списка лотов с авто-выдачей.
+        Проверяет, существует ли лот с автовыдачей с переданным индексом.
+        Если лота не существует - отправляет сообщение с кнопкой обновления списка лотов с автовыдачей.
 
         :param lot_index: числовой индекс лота.
 
@@ -90,10 +89,10 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
             return False
         return True
 
-    # Основное меню настроек авто-выдачи.
+    # Основное меню настроек автовыдачи.
     def open_lots_list(c: types.CallbackQuery):
         """
-        Открывает список лотов с авто-выдачей.
+        Открывает список лотов с автовыдачей.
         """
         offset = int(c.data.split(":")[1])
         bot.edit_message_text(f"Выберите интересующий вас лот.", c.message.chat.id, c.message.id,
@@ -116,7 +115,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
 
     def act_add_lot(c: types.CallbackQuery):
         """
-        Активирует режим добавления нового лота для авто-выдачи.
+        Активирует режим добавления нового лота для автовыдачи.
         """
         offset = int(c.data.split(":")[1])
         result = bot.send_message(c.message.chat.id, "Скопируйте название лота с FunPay и отправьте его мне.",
@@ -127,7 +126,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
 
     def add_lot(m: types.Message):
         """
-        Добавляет новый лот для авто-выдачи.
+        Добавляет новый лот для автовыдачи.
         """
         fp_lots_offset = tg.get_user_state(m.chat.id, m.from_user.id)["data"]["offset"]
         tg.clear_user_state(m.chat.id, m.from_user.id, True)
@@ -137,7 +136,7 @@ def init_auto_delivery_cp(cardinal: Cardinal, *args):
                  Button("➕ Добавить другой", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{fp_lots_offset}"))
 
         if lot in cardinal.AD_CFG.sections():
-            bot.reply_to(m, f"❌ Лот <code>{utils.escape(lot)}</code> уже есть в конфиге авто-выдачи.",
+            bot.reply_to(m, f"❌ Лот <code>{utils.escape(lot)}</code> уже есть в конфиге автовыдачи.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=error_keyboard)
             return
 
@@ -156,9 +155,9 @@ $product""")
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{lot_index}:{ad_lot_offset}"))
 
         logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
-                    f"$YELLOW[{lot}]$RESET в конфиг авто-выдачи.")
+                    f"$YELLOW[{lot}]$RESET в конфиг автовыдачи.")
         bot.send_message(m.chat.id, f"✅ Добавлена новая секция <code>{utils.escape(lot)}</code> в конфиг "
-                                    f"авто-выдачи.", parse_mode="HTML", reply_markup=keyboard)
+                                    f"автовыдачи.", parse_mode="HTML", reply_markup=keyboard)
 
     def open_products_files_list(c: types.CallbackQuery):
         """
@@ -226,7 +225,7 @@ $product""")
     # Меню настройки лотов.
     def open_edit_lot_cp(c: types.CallbackQuery):
         """
-        Открывает панель редактирования авто-выдачи лота.
+        Открывает панель редактирования автовыдачи лота.
         """
         split = c.data.split(":")
         lot_index, offset = int(split[1]), int(split[2])
@@ -237,7 +236,7 @@ $product""")
         lot = cardinal.AD_CFG.sections()[lot_index]
         lot_obj = cardinal.AD_CFG[lot]
 
-        bot.edit_message_text(utils.generate_lot_info_text(lot, lot_obj),
+        bot.edit_message_text(utils.generate_lot_info_text(lot_obj),
                               c.message.chat.id, c.message.id, parse_mode="HTML",
                               reply_markup=keyboards.edit_lot(cardinal, lot_index, offset))
         bot.answer_callback_query(c.id)
@@ -410,14 +409,14 @@ $product""")
             f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET "
             f"изменил параметр $CYAN{param}$RESET "
             f"секции $YELLOW[{lot}]$RESET на $YELLOW{value}$RESET.")
-        bot.edit_message_text(utils.generate_lot_info_text(lot, lot_obj),
+        bot.edit_message_text(utils.generate_lot_info_text(lot_obj),
                               c.message.chat.id, c.message.id, parse_mode="HTML",
                               reply_markup=keyboards.edit_lot(cardinal, lot_number, offset))
         bot.answer_callback_query(c.id)
 
     def create_lot_delivery_test(c: types.CallbackQuery):
         """
-        Создает комбинацию [ключ: название лота] для теста авто-выдачи.
+        Создает комбинацию [ключ: название лота] для теста автовыдачи.
         """
         split = c.data.split(":")
         lot_index, offset = int(split[1]), int(split[2])
@@ -435,15 +434,15 @@ $product""")
 
         logger.info(
             f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET создал одноразовый ключ для "
-            f"авто-выдачи лота $YELLOW[{lot_name}]$RESET: $CYAN{key}$RESET.")
+            f"автовыдачи лота $YELLOW[{lot_name}]$RESET: $CYAN{key}$RESET.")
 
         keyboard = types.InlineKeyboardMarkup() \
             .row(Button("◀️ Назад", callback_data=f"{CBT.EDIT_AD_LOT}:{lot_index}:{offset}"),
                  Button("👾 Еще 1 тест", callback_data=f"test_auto_delivery:{lot_index}:{offset}"))
 
-        bot.send_message(c.message.chat.id, f"✅ Одноразовый ключ для теста авто-выдачи лота "
+        bot.send_message(c.message.chat.id, f"✅ Одноразовый ключ для теста автовыдачи лота "
                                             f"<code>{utils.escape(lot_name)}</code> успешно создан. \n\n"
-                                            f"Для теста авто-выдачи введите команду снизу в любой чат FunPay (ЛС).\n\n"
+                                            f"Для теста автовыдачи введите команду снизу в любой чат FunPay (ЛС).\n\n"
                                             f"<code>!автовыдача {key}</code>", parse_mode="HTML", reply_markup=keyboard)
         bot.answer_callback_query(c.id)
 
@@ -464,7 +463,7 @@ $product""")
 
         logger.info(
             f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET удалил секцию "
-            f"$YELLOW[{lot}]$RESET из конфига авто-выдачи.")
+            f"$YELLOW[{lot}]$RESET из конфига автовыдачи.")
         bot.edit_message_text(f"Выберите интересующий вас лот.", c.message.chat.id, c.message.id,
                               reply_markup=keyboards.lots_list(cardinal, offset))
         bot.answer_callback_query(c.id)
@@ -508,7 +507,7 @@ $product""")
                      Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{ad_lot_index}:{ad_lots_offset}"))
 
             bot.send_message(c.message.chat.id,
-                             f"❌ Лот <code>{utils.escape(lot.title)}</code> уже есть в конфиге авто-выдачи.",
+                             f"❌ Лот <code>{utils.escape(lot.title)}</code> уже есть в конфиге автовыдачи.",
                              parse_mode="HTML", reply_markup=keyboard)
             bot.answer_callback_query(c.id)
             return
@@ -524,11 +523,11 @@ $product""")
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{ad_lot_index}:{ad_lots_offset}"))
 
         logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET добавил секцию "
-                    f"$YELLOW[{lot.title}]$RESET в конфиг авто-выдачи.")
+                    f"$YELLOW[{lot.title}]$RESET в конфиг автовыдачи.")
 
         bot.send_message(c.message.chat.id,
                          f"✅ Добавлена новая секция <code>{utils.escape(lot.title)}</code> в конфиг "
-                         f"авто-выдачи.", parse_mode="HTML", reply_markup=keyboard)
+                         f"автовыдачи.", parse_mode="HTML", reply_markup=keyboard)
         bot.answer_callback_query(c.id)
 
     # Меню управления файлов с товарами.
@@ -697,8 +696,8 @@ $product""")
             keyboard = types.InlineKeyboardMarkup()\
                 .add(Button("◀️ Назад", callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{file_index}:{offset}"))
             bot.edit_message_text(f"❌ Файл <code>storage/products/{file_name}</code> используется в конфиге "
-                                  f"авто-выдачи.\n Для начала необходимо удалить все лоты, которые используют этот "
-                                  f"файл с товарами, из конфига авто-выдачи.",
+                                  f"автовыдачи.\n Для начала необходимо удалить все лоты, которые используют этот "
+                                  f"файл с товарами, из конфига автовыдачи.",
                                   c.message.chat.id, c.message.id,
                                   parse_mode="HTML", reply_markup=keyboard)
             bot.answer_callback_query(c.id)
@@ -726,7 +725,7 @@ $product""")
             logger.debug("------TRACEBACK------", exc_info=True)
             return
 
-    # Основное меню настроек авто-выдачи.
+    # Основное меню настроек автовыдачи.
     tg.cbq_handler(open_lots_list, lambda c: c.data.startswith(f"{CBT.AD_LOTS_LIST}:"))
     tg.cbq_handler(open_funpay_lots_list, lambda c: c.data.startswith(f"{CBT.FP_LOTS_LIST}:"))
     tg.cbq_handler(act_add_lot, lambda c: c.data.startswith(f"{CBT.ADD_AD_TO_LOT_MANUALLY}:"))

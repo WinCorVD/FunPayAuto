@@ -14,11 +14,9 @@ import string
 import psutil
 import telebot
 import logging
-import traceback
 import FunPayAPI.types
 
 from telebot import types
-from telebot.types import InlineKeyboardButton as Button
 
 from tg_bot import utils, keyboards, CBT
 from Utils import cardinal_tools
@@ -40,7 +38,7 @@ class TGBot:
         # {
         #     chat_id: {
         #         user_id: {
-        #            "status": None | "statusText",
+        #             "state": None | "statusText",
         #             "data": { ... },
         #             "msg_id": int
         #         }
@@ -61,21 +59,20 @@ class TGBot:
         self.answer_templates = utils.load_answer_templates()
 
         self.commands = {
-            "FunPayCardinal": {
-                "menu": "открыть панель настроек",
-                "commands": "получить справку по командам",
-                "profile": "получить статистику аккаунта",
-                "test_lot": "создать ключ для теста авто-выдачи",
-                "ban": "добавить пользователя в ЧС",
-                "unban": "удалить пользователя из ЧС",
-                "block_list": "получить ЧС",
-                "logs": "получить лог-файл",
-                "about": "информация о боте",
-                "sys": "информация о нагрузке на систему",
-                "restart": "перезагрузить бота",
-                "power_off": "выключить бота"
-            }
+            "menu": "открыть панель настроек",
+            "profile": "получить статистику аккаунта",
+            "test_lot": "создать ключ для теста автовыдачи",
+            "ban": "добавить пользователя в ЧС",
+            "unban": "удалить пользователя из ЧС",
+            "block_list": "получить ЧС",
+            "logs": "получить лог-файл",
+            "about": "информация о боте",
+            "sys": "информация о нагрузке на систему",
+            "restart": "перезагрузить бота",
+            "power_off": "выключить бота"
         }
+
+        self.file_handlers = {}
 
     # User states
     def get_user_state(self, chat_id: int, user_id: int) -> dict | None:
@@ -205,6 +202,20 @@ class TGBot:
         return self.notification_settings[chat_id][notification_type]
 
     # handler binders
+    def file_handler(self, state, handler):
+        self.file_handlers[state] = handler
+
+    def run_file_handlers(self, m: types.Message):
+        print(self.get_user_state(m.chat.id, m.from_user.id))
+        if (state := self.get_user_state(m.chat.id, m.from_user.id)) is None \
+                or state["state"] not in list(self.file_handlers.keys()):
+            return
+        try:
+            self.file_handlers[state["state"]](m)
+        except:
+            logger.error("Произошла ошибка при выполнении хэндлера Telegram бота. Подробнее в файле logs/log.log.")
+            logger.debug("------TRACEBACK------", exc_info=True)
+
     def msg_handler(self, handler, **kwargs):
         """
         Регистрирует хэндлер, срабатывающий при новом сообщении.
@@ -221,7 +232,7 @@ class TGBot:
                 handler(message)
             except:
                 logger.error("Произошла ошибка при выполнении хэндлера Telegram бота. Подробнее в файле logs/log.log.")
-                logger.debug(traceback.format_exc())
+                logger.debug("------TRACEBACK------", exc_info=True)
 
     def cbq_handler(self, handler, func, **kwargs):
         """
@@ -241,7 +252,7 @@ class TGBot:
                 handler(call)
             except:
                 logger.error("Произошла ошибка при выполнении хэндлера Telegram бота. Подробнее в файле logs/log.log.")
-                logger.debug(traceback.format_exc())
+                logger.debug("------TRACEBACK------", exc_info=True)
 
     # Система свой-чужой 0_0
     def reg_admin(self, message: types.Message):
@@ -289,12 +300,6 @@ class TGBot:
         self.bot.send_message(message.chat.id, "Добро пожаловать в панель управления. Выберите категорию настроек.",
                               reply_markup=keyboards.settings_sections())
 
-    def send_commands_help(self, message: types.Message):
-        """
-        Отправляет справку по командам.
-        """
-        self.bot.send_message(message.chat.id, utils.generate_help_text(self.commands), parse_mode="HTML")
-
     def send_profile(self, message: types.Message):
         """
         Отправляет статистику аккаунта.
@@ -311,7 +316,7 @@ class TGBot:
             self.bot.edit_message_text("❌ Не удалось обновить статистику аккаунта. "
                                        "Подробнее в файле <code>logs/log.log</code>.", new_msg.chat.id, new_msg.id,
                                        parse_mode="HTML")
-            logger.debug(traceback.format_exc())
+            logger.debug("------TRACEBACK------", exc_info=True)
             self.bot.answer_callback_query(call.id)
             return
 
@@ -322,16 +327,16 @@ class TGBot:
 
     def act_manual_delivery_test(self, message: types.Message):
         """
-        Активирует режим ввода названия лота для ручной генерации ключа теста авто-выдачи.
+        Активирует режим ввода названия лота для ручной генерации ключа теста автовыдачи.
         """
-        result = self.bot.send_message(message.chat.id, "Введите название лота, тест авто-выдачи которого вы хотите "
+        result = self.bot.send_message(message.chat.id, "Введите название лота, тест автовыдачи которого вы хотите "
                                                         "провести.",
                                        reply_markup=keyboards.CLEAR_STATE_BTN)
         self.set_user_state(message.chat.id, result.id, message.from_user.id, CBT.MANUAL_AD_TEST)
 
     def manual_delivery_text(self, message: types.Message):
         """
-        Генерирует ключ теста авто-выдачи (ручной режим).
+        Генерирует ключ теста автовыдачи (ручной режим).
         """
         self.clear_user_state(message.chat.id, message.from_user.id, True)
         lot_name = message.text.strip()
@@ -342,12 +347,12 @@ class TGBot:
 
         logger.info(
             f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET создал "
-            f"одноразовый ключ для авто-выдачи лота $YELLOW[{lot_name}]$RESET: $CYAN{key}$RESET.")
+            f"одноразовый ключ для автовыдачи лота $YELLOW[{lot_name}]$RESET: $CYAN{key}$RESET.")
 
         self.bot.send_message(message.chat.id,
-                              f"✅ Одноразовый ключ для теста авто-выдачи лота "
+                              f"✅ Одноразовый ключ для теста автовыдачи лота "
                               f"<b>[</b><code>{utils.escape(lot_name)}</code><b>]</b> успешно создан. \n\n"
-                              f"Для теста авто-выдачи введите команду снизу в любой чат FunPay (ЛС)."
+                              f"Для теста автовыдачи введите команду снизу в любой чат FunPay (ЛС)."
                               f"\n\n<code>!автовыдача {key}</code>", parse_mode="HTML")
 
     def act_ban(self, message: types.Message):
@@ -705,7 +710,7 @@ ID чата: <code>{call.message.chat.id}</code>""",
             self.bot.edit_message_text("В данном разделе вы можете изменить существующие команды или добавить новые.",
                                        call.message.chat.id, call.message.id, reply_markup=keyboards.ar_settings())
         elif section == "autoDelivery":
-            self.bot.edit_message_text("В данном разделе вы можете изменить настройки авто-выдачи, "
+            self.bot.edit_message_text("В данном разделе вы можете изменить настройки автовыдачи, "
                                        "загрузить файлы с товарами и т.д.",
                                        call.message.chat.id, call.message.id, reply_markup=keyboards.ad_settings())
         self.bot.answer_callback_query(call.id)
@@ -731,8 +736,9 @@ ID чата: <code>{call.message.chat.id}</code>""",
         self.cbq_handler(self.ignore_unauthorized_users,
                          lambda call: call.from_user.id not in self.authorized_users)
 
+        self.msg_handler(self.run_file_handlers, content_types=["document"])
+
         self.msg_handler(self.send_settings_menu, commands=["menu"])
-        self.msg_handler(self.send_commands_help, commands=["commands"])
         self.msg_handler(self.send_profile, commands=["profile"])
         self.cbq_handler(self.update_profile, lambda c: c.data == CBT.UPDATE_PROFILE)
         self.msg_handler(self.act_manual_delivery_test, commands=["test_lot"])
@@ -789,38 +795,28 @@ ID чата: <code>{call.message.chat.id}</code>""",
                     self.init_messages.append((new_msg.chat.id, new_msg.id))
             except:
                 logger.error("Произошла ошибка при отправке уведомления в Telegram.")
-                logger.debug(traceback.format_exc())
+                logger.debug("------TRACEBACK------", exc_info=True)
                 continue
 
-    def add_command(self, plugin_name: str, command: str, help_text: str) -> None:
+    def add_command_to_menu(self, command: str, help_text: str) -> None:
         """
-        Добавляет команду в список команд.
-
-        :param plugin_name: имя плагина (лучше всего использовать переменную __name__).
+        Добавляет команду в список команд (в кнопке menu).
 
         :param command: текст команды.
 
         :param help_text: текст справки.
         """
-        if self.commands.get(plugin_name) is None:
-            self.commands[plugin_name] = {}
+        self.commands[command] = help_text
 
-        self.commands[plugin_name][command] = help_text
-
-    def setup(self):
+    def setup_commands(self):
         """
         Устанавливает меню команд.
         """
-        commands = []
-
-        for module in self.commands:
-            for command in self.commands[module]:
-                commands.append(types.BotCommand(f"/{command}", self.commands[module][command]))
+        commands = [types.BotCommand(f"/{i}", self.commands[i]) for i in self.commands]
         self.bot.set_my_commands(commands)
 
     def init(self):
         self.__init_commands()
-        self.setup()
         logger.info("$MAGENTATelegram бот инициализирован.")
 
     def run(self):
@@ -842,4 +838,4 @@ ID чата: <code>{call.message.chat.id}</code>""",
             self.bot.infinity_polling(logger_level=logging.DEBUG)
         except:
             logger.error("Произошла ошибка при получении обновлений Telegram (введен некорректный токен?).")
-            logger.debug(traceback.format_exc())
+            logger.debug("------TRACEBACK------", exc_info=True)
