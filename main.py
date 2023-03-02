@@ -11,13 +11,17 @@ import os
 from cardinal import Cardinal
 import Utils.exceptions as excs
 
-os.chdir(os.path.dirname(__file__))
+if getattr(sys, 'frozen', False):
+    os.chdir(os.path.dirname(sys.executable))
+else:
+    os.chdir(os.path.dirname(__file__))
 
 # Инициируем цветной текст и логгер.
 colorama.init()
 if not os.path.exists("logs"):
     os.mkdir("logs")
 
+print(os.getcwd())
 with open("configs/logger_config.json") as f:
     LOGGER_CONFIG = json.loads(f.read())
 logging.config.dictConfig(LOGGER_CONFIG)
