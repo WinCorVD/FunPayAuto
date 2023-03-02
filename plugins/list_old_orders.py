@@ -84,3 +84,4 @@ def init_commands(cardinal: Cardinal, *args):
 
 
 BIND_TO_PRE_INIT = [init_commands]
+BIND_TO_DELETE = None

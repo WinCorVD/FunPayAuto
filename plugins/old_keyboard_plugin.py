@@ -49,3 +49,4 @@ def main(cardinal: Cardinal, *args):
 
 
 BIND_TO_PRE_INIT = [main]
+BIND_TO_DELETE = None

@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import shutil
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
@@ -41,6 +43,18 @@ def save_state():
         os.makedirs(f"storage/plugins/{UUID}")
     with open(f"storage/plugins/{UUID}/state.txt", "w", encoding="utf-8") as f:
         f.write(str(ENABLED))
+
+
+def delete_plugin_folder(c, call):
+    """
+    Хэндлер на удаление плагина.
+    """
+    if not os.path.exists(f"storage/plugins/{UUID}"):
+        return
+    try:
+        shutil.rmtree(f"storage/plugins/{UUID}")
+    except:
+        pass
 
 
 def send_my_message_notification_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
@@ -93,3 +107,4 @@ def add_commands(cardinal: Cardinal, *args):
 
 BIND_TO_NEW_MESSAGE = [send_my_message_notification_handler]
 BIND_TO_PRE_INIT = [add_commands]
+BIND_TO_DELETE = delete_plugin_folder

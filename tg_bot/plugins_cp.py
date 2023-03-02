@@ -159,7 +159,13 @@ def init_plugins_cp(cardinal: Cardinal, *args):
             bot.answer_callback_query(c.id)
             return
 
-        # todo: запуск handler'ов, привязанных к удалению плагина.
+        if cardinal.plugins[uuid].delete_handler:
+            try:
+                cardinal.plugins[uuid].delete_handler(cardinal, c)
+            except:
+                logger.error("Произошла ошибка при выполнении хэндлера удаления. Подробнее в файле logs/log.log.")
+                logger.debug("------TRACEBACK------", exc_info=True)
+
         os.remove(cardinal.plugins[uuid].path)
         cardinal.plugins.pop(uuid)
 

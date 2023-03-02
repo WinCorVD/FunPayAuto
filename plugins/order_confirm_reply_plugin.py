@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 import os
 import json
+import shutil
 import logging
 from FunPayAPI.types import OrderStatusChangedEvent, OrderStatuses, Message
 import telebot
@@ -50,6 +51,18 @@ def save_settings():
         os.makedirs(f"storage/plugins/{UUID}")
     with open(f"storage/plugins/{UUID}/settings.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(SETTINGS, ensure_ascii=False))
+
+
+def delete_plugin_folder(c, call):
+    """
+    Хэндлер на удаление плагина.
+    """
+    if not os.path.exists(f"storage/plugins/{UUID}"):
+        return
+    try:
+        shutil.rmtree(f"storage/plugins/{UUID}")
+    except:
+        pass
 
 
 def send_thank_u_message_handler(cardinal: Cardinal, event: OrderStatusChangedEvent):
@@ -183,3 +196,4 @@ def telegram_settings_cp(cardinal: Cardinal, *args):
 
 BIND_TO_PRE_INIT = [telegram_settings_cp]
 BIND_TO_ORDER_STATUS_CHANGED = [send_thank_u_message_handler, send_notification_handler]
+BIND_TO_DELETE = delete_plugin_folder

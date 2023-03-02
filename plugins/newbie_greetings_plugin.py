@@ -5,6 +5,7 @@ if TYPE_CHECKING:
 
 import os
 import json
+import shutil
 import logging
 from tg_bot import utils, keyboards, CBT
 import telebot
@@ -75,6 +76,18 @@ def cache_old_users():
         os.makedirs(f"storage/plugins/{UUID}/")
     with open("storage/cache/newbie_detect_plugin_cache.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(OLD_USERS, ensure_ascii=False))
+
+
+def delete_plugin_folder(c, call):
+    """
+    Хэндлер на удаление плагина.
+    """
+    if not os.path.exists(f"storage/plugins/{UUID}"):
+        return
+    try:
+        shutil.rmtree(f"storage/plugins/{UUID}")
+    except:
+        pass
 
 
 def save_already_exists_chat(cardinal: Cardinal, event: InitialMessageEvent):
@@ -211,3 +224,4 @@ logger.info("Загрузил пользователей, которые уже 
 BIND_TO_PRE_INIT = [init_settings_menu]
 BIND_TO_NEW_MESSAGE = [send_newbie_message]
 BIND_TO_INIT_MESSAGE = [save_already_exists_chat]
+BIND_TO_DELETE = delete_plugin_folder

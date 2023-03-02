@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 from tg_bot import auto_response_cp, config_loader_cp, auto_delivery_cp, templates_cp, plugins_cp, file_uploader
 from types import ModuleType
+from typing import Callable
 from uuid import UUID
 import importlib.util
 import configparser
@@ -56,7 +57,7 @@ def get_cardinal() -> None | Cardinal:
 
 class PluginData:
     def __init__(self, name: str, version: str, desc: str, credentials: str, uuid: str,
-                 path: str, plugin: ModuleType, settings_page: bool, enabled: bool):
+                 path: str, plugin: ModuleType, settings_page: bool, delete_handler: Callable, enabled: bool):
         self.name = name
         self.version = version
         self.description = desc
@@ -67,6 +68,7 @@ class PluginData:
         self.plugin = plugin
         self.settings_page = settings_page
         self.commands = {}
+        self.delete_handler = delete_handler
         self.enabled = enabled
 
 
@@ -606,13 +608,15 @@ class Cardinal(object):
         plugin = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(plugin)
 
-        fields = ["NAME", "VERSION", "DESCRIPTION", "CREDITS", "SETTINGS_PAGE", "UUID"]
+        fields = ["NAME", "VERSION", "DESCRIPTION", "CREDITS", "SETTINGS_PAGE", "UUID", "BIND_TO_DELETE"]
         result = {}
 
         for i in fields:
             try:
                 if i == "SETTINGS_PAGE":
                     value = bool(getattr(plugin, i))
+                elif i == "BIND_TO_DELETE":
+                    value = getattr(plugin, i)
                 else:
                     value = str(getattr(plugin, i))
             except AttributeError:
@@ -648,7 +652,7 @@ class Cardinal(object):
                 continue
 
             plugin_data = PluginData(data["NAME"], data["VERSION"], data["DESCRIPTION"], data["CREDITS"], data["UUID"],
-                                     f"plugins/{file}", plugin, data["SETTINGS_PAGE"],
+                                     f"plugins/{file}", plugin, data["SETTINGS_PAGE"], data["BIND_TO_DELETE"],
                                      False if data["UUID"] in self.disabled_plugins else True)
 
             self.plugins[data["UUID"]] = plugin_data
