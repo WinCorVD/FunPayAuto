@@ -376,7 +376,7 @@ def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent,
            kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
 
 
-def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):
+def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int) -> bool:
     """
     Обновляет состояние лота
 
@@ -385,6 +385,8 @@ def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):
     :param lot: экземпляр лота.
 
     :param task: -1 - деактивировать лот. 1 - активировать лот.
+
+    :return: результат выполнения.
     """
     attempts = 3
     while attempts:
@@ -396,7 +398,7 @@ def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):
             elif task == -1:
                 cardinal.account.save_lot(lot_info, active=False)
                 logger.info(f"Деактивировал лот $YELLOW{lot.title}$RESET.")
-            return
+            return True
         except:
             logger.error(f"Произошла ошибка при изменении состояния лота $YELLOW{lot.title}$RESET."
                          "Подробнее в файле logs/log.log")
@@ -404,6 +406,7 @@ def update_lot_state(cardinal: Cardinal, lot: FunPayAPI.types.Lot, task: int):
             attempts -= 1
             time.sleep(2)
     logger.error(f"Не удалось изменить состояние лота $YELLOW{lot.title}$RESET: превышено кол-во попыток.")
+    return False
 
 
 def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
@@ -414,7 +417,8 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
         return
 
     lots_ids = [i.id for i in cardinal.current_lots]
-
+    deactivated = []
+    restored = []
     for lot in cardinal.lots:
         # -1 - деактивировать
         # 0 - ничего не делать
@@ -454,9 +458,28 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
                     current_task = -1
 
         if current_task:
-            update_lot_state(cardinal, lot, current_task)
+            result = update_lot_state(cardinal, lot, current_task)
+            if result:
+                if current_task == -1:
+                    deactivated.append(lot.title)
+                elif current_task == 1:
+                    restored.append(lot.title)
             time.sleep(0.5)
 
+    if deactivated:
+        lots = "\n".join(deactivated)
+        text = f"""🔴 <b>Деактивировал лоты:</b>
+        
+<code>{lots}</code>"""
+        Thread(target=cardinal.telegram.send_notification, args=(text, ),
+               kwargs={"notification_type": utils.NotificationTypes.lots_deactivate}, daemon=True).start()
+    if restored:
+        lots = "\n".join(restored)
+        text = f"""🟢 <b>Активировал лоты:</b>
+
+<code>{lots}</code>"""
+        Thread(target=cardinal.telegram.send_notification, args=(text,),
+               kwargs={"notification_type": utils.NotificationTypes.lots_restore}, daemon=True).start()
     cardinal.last_state_change_tag = event.tag
 
 
