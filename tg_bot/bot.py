@@ -66,6 +66,7 @@ class TGBot:
             "unban": "удалить пользователя из ЧС",
             "block_list": "получить ЧС",
             "logs": "получить лог-файл",
+            "del_logs": "удалить старые лог-файлы",
             "about": "информация о боте",
             "sys": "информация о нагрузке на систему",
             "restart": "перезагрузить бота",
@@ -426,6 +427,20 @@ class TGBot:
             with open("logs/log.log", "r", encoding="utf-8") as f:
                 self.bot.send_document(message.chat.id, f)
 
+    def del_logs(self, message: types.Message):
+        """
+        Удаляет старые лог-файлы.
+        """
+        complete = 0
+        for file in os.listdir("logs"):
+            if not file.endswith(".log"):
+                try:
+                    os.remove(f"logs/{file}")
+                    complete += 1
+                except:
+                    continue
+        self.bot.send_message(message.chat.id, f"🗑️ Удалено {complete} лог-файл(-а, -ов).")
+
     def send_about_text(self, message: types.Message):
         """
         Отправляет текст о боте.
@@ -750,6 +765,7 @@ ID чата: <code>{call.message.chat.id}</code>""",
         self.msg_handler(self.unban, func=lambda m: self.check_state(m.chat.id, m.from_user.id, CBT.UNBAN))
         self.msg_handler(self.send_ban_list, commands=["block_list"])
         self.msg_handler(self.send_logs, commands=["logs"])
+        self.msg_handler(self.del_logs, commands=["del_logs"])
         self.msg_handler(self.send_about_text, commands=["about"])
         self.msg_handler(self.send_system_info, commands=["sys"])
         self.msg_handler(self.restart_cardinal, commands=["restart"])

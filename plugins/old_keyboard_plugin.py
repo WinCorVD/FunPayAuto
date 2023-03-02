@@ -33,7 +33,7 @@ def main(cardinal: Cardinal, *args):
     def close_keyboard(m: Message):
         bot.send_message(m.chat.id, "Клавиатура скрыта!", reply_markup=telebot.types.ReplyKeyboardRemove())
 
-    cardinal.add_commands(UUID, [
+    cardinal.add_telegram_commands(UUID, [
         ("keyboard", "показывает / скрывает клавиатуру старых версий FunPay Cardinal'а.", True)
     ])
 

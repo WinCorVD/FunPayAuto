@@ -99,7 +99,7 @@ def add_commands(cardinal: Cardinal, *args):
         else:
             bot.send_message(msg.chat.id, "✅ Уведомления о своих сообщениях выключены.")
 
-    cardinal.add_commands(UUID, [
+    cardinal.add_telegram_commands(UUID, [
         ("mymessages", "вкл / выкл уведомления об отправленных вами сообщениях", True)
     ])
     tg.msg_handler(toggle_state, commands=["MyMessages", "mymessages"])

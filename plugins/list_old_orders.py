@@ -77,10 +77,9 @@ def init_commands(cardinal: Cardinal, *args):
         bot.send_message(m.chat.id, f"<code>{utils.escape(text)}</code>", parse_mode="HTML")
 
     tg.msg_handler(send_orders, commands=["old_orders"])
-    cardinal.add_commands(UUID,
-                          [
-                              ("old_orders", "отправляет список открытых заказов, которым более 24 часов", True)
-                          ])
+    cardinal.add_telegram_commands(UUID, [
+        ("old_orders", "отправляет список открытых заказов, которым более 24 часов", True)
+    ])
 
 
 BIND_TO_PRE_INIT = [init_commands]

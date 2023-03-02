@@ -696,7 +696,7 @@ class Cardinal(object):
                 logger.error("Произошла ошибка при выполнении хэндлера. Подробнее в файле logs/log.log.")
                 logger.debug("------TRACEBACK------", exc_info=True)
 
-    def add_commands(self, uuid: str, commands: list[tuple[str, str, bool]]):
+    def add_telegram_commands(self, uuid: str, commands: list[tuple[str, str, bool]]):
         """
         Добавляет команды в список команд плагина.
         [
