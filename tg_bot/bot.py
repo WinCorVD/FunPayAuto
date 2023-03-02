@@ -271,14 +271,14 @@ class TGBot:
 🔔 Ты можешь настроить уведомления для <b><u>этого чата</u></b> в меню настроек.
 
 ⚙️ Чтобы открыть меню настроек <i>FunPay Cardinal</i>, введи команду /menu."""
-            logger.warning(f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET "
+            logger.warning(f"Пользователь $MAGENTA@{message.from_user.username} (id: {message.from_user.id})$RESET "
                            "ПОЛУЧИЛ ДОСТУП К ПУ TG!")
 
         else:
             text = f"""👋 Привет, <b><i>{message.from_user.username}</i></b>!\n\n❌ Ты неавторизованный пользователь.\n
 🔑 Отправь мне <u><b>секретный пароль</b></u> (<code>[Telegram]</code> <b>→</b> <code>secretKey</code>) """ \
                    """который ты ввел в моих настройках, чтобы начать работу."""
-            logger.warning(f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET "
+            logger.warning(f"Пользователь $MAGENTA@{message.from_user.username} (id: {message.from_user.id})$RESET "
                            f"попытался получить доступ к ПУ TG. Сдерживаю его как могу!")
         self.bot.send_message(message.chat.id, text, parse_mode="HTML")
 
@@ -287,7 +287,7 @@ class TGBot:
         """
         Игнорирует callback'и от не авторизированных пользователей.
         """
-        logger.warning(f"Пользователь $MAGENTA{call.from_user.username} (id {call.from_user.id})$RESET "
+        logger.warning(f"Пользователь $MAGENTA@{call.from_user.username} (id {call.from_user.id})$RESET "
                        f"тыкает кнопки ПУ в чате $MAGENTA@{call.message.chat.username}"
                        f" (id {call.message.chat.id})$RESET. Сдерживаю его как могу!")
         return
@@ -346,7 +346,7 @@ class TGBot:
         self.cardinal.delivery_tests[key] = lot_name
 
         logger.info(
-            f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET создал "
+            f"Пользователь $MAGENTA@{message.from_user.username} (id: {message.from_user.id})$RESET создал "
             f"одноразовый ключ для автовыдачи лота $YELLOW[{lot_name}]$RESET: $CYAN{key}$RESET.")
 
         self.bot.send_message(message.chat.id,
@@ -376,7 +376,7 @@ class TGBot:
             return
         self.cardinal.block_list.append(nickname)
         cardinal_tools.cache_block_list(self.cardinal.block_list)
-        logger.info(f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET "
+        logger.info(f"Пользователь $MAGENTA@{message.from_user.username} (id: {message.from_user.id})$RESET "
                     f"добавил пользователя $YELLOW{nickname}$RESET в ЧС.")
         self.bot.send_message(message.chat.id, f"✅ Пользователь <code>{nickname}</code> добавлен в ЧС.",
                               parse_mode="HTML")
@@ -401,7 +401,7 @@ class TGBot:
             return
         self.cardinal.block_list.remove(nickname)
         cardinal_tools.cache_block_list(self.cardinal.block_list)
-        logger.info(f"Пользователь $MAGENTA{message.from_user.username} (id: {message.from_user.id})$RESET "
+        logger.info(f"Пользователь $MAGENTA@{message.from_user.username} (id: {message.from_user.id})$RESET "
                     f"удалил пользователя $YELLOW{nickname}$RESET из ЧС.")
         self.bot.send_message(message.chat.id, f"✅ Пользователь <code>{nickname}</code> удален из ЧС.",
                               parse_mode="HTML")
@@ -671,7 +671,7 @@ class TGBot:
         elif section == "BlockList":
             self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id,
                                                reply_markup=keyboards.block_list_settings(self.cardinal))
-        logger.info(f"Пользователь $MAGENTA{call.from_user.username} (id: {call.from_user.id})$RESET изменил параметр "
+        logger.info(f"Пользователь $MAGENTA@{call.from_user.username} (id: {call.from_user.id})$RESET изменил параметр "
                     f"$CYAN{option}$RESET секции $YELLOW[{section}]$RESET "
                     f"основного конфига на $YELLOW{self.cardinal.MAIN_CFG[section][option]}$RESET.")
         self.bot.answer_callback_query(call.id)
@@ -682,7 +682,7 @@ class TGBot:
 
         result = self.toggle_notification(chat_id, notification_type)
 
-        logger.info(f"Пользователь $MAGENTA{call.from_user.username} (id: {call.from_user.id})$RESET переключил "
+        logger.info(f"Пользователь $MAGENTA@{call.from_user.username} (id: {call.from_user.id})$RESET переключил "
                     f"уведомления $YELLOW{notification_type}$RESET для чата $YELLOW{call.message.chat.id}$RESET на "
                     f"$CYAN{result}$RESET.")
         self.bot.edit_message_reply_markup(call.message.chat.id, call.message.id,

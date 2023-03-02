@@ -66,7 +66,7 @@ def init_config_loader_cp(cardinal: Cardinal, *args):
             f.seek(0)
             bot.send_document(c.message.chat.id, f, caption=text, reply_markup=back_button)
 
-        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
+        logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
                     f"конфиг $YELLOW{path}$RESET.")
         bot.answer_callback_query(c.id)
 

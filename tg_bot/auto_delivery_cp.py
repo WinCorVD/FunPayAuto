@@ -154,7 +154,7 @@ $product""")
                  Button("➕ Добавить еще", callback_data=f"{CBT.ADD_AD_TO_LOT_MANUALLY}:{fp_lots_offset}"),
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{lot_index}:{ad_lot_offset}"))
 
-        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
+        logger.info(f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
                     f"$YELLOW[{lot}]$RESET в конфиг автовыдачи.")
         bot.send_message(m.chat.id, f"✅ Добавлена новая секция <code>{utils.escape(lot)}</code> в конфиг "
                                     f"автовыдачи.", parse_mode="HTML", reply_markup=keyboard)
@@ -217,7 +217,7 @@ $product""")
             .row(Button("◀️ Назад", callback_data=f"{CBT.CATEGORY}:autoDelivery"),
                  Button("➕ Создать еще", callback_data=CBT.CREATE_PRODUCTS_FILE),
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_PRODUCTS_FILE}:{file_index}:{offset}"))
-        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET создал файл для товаров "
+        logger.info(f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET создал файл для товаров "
                     f"$YELLOWstorage/products/{file_name}$RESET.")
         bot.send_message(m.chat.id, f"✅ Файл <code>storage/products/{utils.escape(file_name)}</code> создан.",
                          parse_mode="HTML", reply_markup=keyboard)
@@ -292,7 +292,7 @@ $product""")
         cardinal.AD_CFG.set(lot, "response", new_response)
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
-        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст выдачи "
+        logger.info(f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст выдачи "
                     f"лота $YELLOW[{lot}]$RESET на $YELLOW\"{new_response}\"$RESET.")
 
         bot.reply_to(m, f"✅ Ответ для лота <code>{utils.escape(lot)}</code> изменен на "
@@ -344,7 +344,7 @@ $product""")
             cardinal.AD_CFG.remove_option(lot, "productsFileName")
             cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
             logger.info(
-                f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET отвязал файл с товарами от "
+                f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET отвязал файл с товарами от "
                 f"лота $YELLOW[{lot}]$RESET.")
             bot.reply_to(m, f"✅ Файл с товарами успешно отвязан от лота <code>{utils.escape(lot)}</code>.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
@@ -373,14 +373,14 @@ $product""")
 
         if exists:
             logger.info(
-                f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET привязал файл с товарами "
+                f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET привязал файл с товарами "
                 f"$YELLOWstorage/products/{file_name}$RESET к лоту $YELLOW[{lot}]$RESET.")
             bot.reply_to(m, f"✅ Файл с товарами <code>storage/products/{utils.escape(file_name)}</code> "
                             f"успешно привязан к лоту <code>{utils.escape(lot)}</code>.",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
         else:
             logger.info(
-                f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET создал и привязал файл с "
+                f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET создал и привязал файл с "
                 f"товарами $YELLOWstorage/products/{file_name}$RESET к лоту $YELLOW[{lot}]$RESET.")
 
             bot.reply_to(m, f"✅ Файл с товарами <code>storage/products/{utils.escape(file_name)}</code> "
@@ -406,7 +406,7 @@ $product""")
         cardinal.AD_CFG.set(lot, param, value)
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
         logger.info(
-            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET "
+            f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET "
             f"изменил параметр $CYAN{param}$RESET "
             f"секции $YELLOW[{lot}]$RESET на $YELLOW{value}$RESET.")
         bot.edit_message_text(utils.generate_lot_info_text(lot_obj),
@@ -433,7 +433,7 @@ $product""")
         cardinal.delivery_tests[key] = lot_name
 
         logger.info(
-            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET создал одноразовый ключ для "
+            f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET создал одноразовый ключ для "
             f"автовыдачи лота $YELLOW[{lot_name}]$RESET: $CYAN{key}$RESET.")
 
         keyboard = types.InlineKeyboardMarkup() \
@@ -462,7 +462,7 @@ $product""")
         cardinal.save_config(cardinal.AD_CFG, "configs/auto_delivery.cfg")
 
         logger.info(
-            f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET удалил секцию "
+            f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET удалил секцию "
             f"$YELLOW[{lot}]$RESET из конфига автовыдачи.")
         bot.edit_message_text(f"Выберите интересующий вас лот.", c.message.chat.id, c.message.id,
                               reply_markup=keyboards.lots_list(cardinal, offset))
@@ -522,7 +522,7 @@ $product""")
             .row(Button("◀️ Назад", callback_data=f"{CBT.FP_LOTS_LIST}:{fp_lots_offset}"),
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_AD_LOT}:{ad_lot_index}:{ad_lots_offset}"))
 
-        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET добавил секцию "
+        logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET добавил секцию "
                     f"$YELLOW[{lot.title}]$RESET в конфиг автовыдачи.")
 
         bot.send_message(c.message.chat.id,
@@ -623,7 +623,7 @@ $product""")
             bot.reply_to(m, f"❌ Не удалось добавить товары в файл. Подробнее в файле <code>logs/log.log</code>",
                          allow_sending_without_reply=True, parse_mode="HTML", reply_markup=keyboard)
 
-        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил "
+        logger.info(f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET добавил "
                     f"$CYAN{len(products)}$RESET товар(-a, -oв) в файл $YELLOWstorage/products/{file_name}$RESET.")
 
         keyboard = types.InlineKeyboardMarkup().row(back_btn, add_more_btn)
@@ -656,7 +656,7 @@ $product""")
                 bot.answer_callback_query(c.id)
                 return
 
-            logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
+            logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET запросил "
                         f"файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
             f.seek(0)
             bot.send_document(c.message.chat.id, f)
@@ -706,7 +706,7 @@ $product""")
         try:
             os.remove(f"storage/products/{file_name}")
 
-            logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET удалил "
+            logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET удалил "
                         f"файл с товарами $YELLOWstorage/products/{file_name}$RESET.")
 
             bot.edit_message_text(f"Выберите интересующий вас файл с товарами.",

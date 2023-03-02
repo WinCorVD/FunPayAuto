@@ -111,7 +111,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
             .row(Button("◀️ Назад", callback_data=f"{CBT.CATEGORY}:autoResponse"),
                  Button("➕ Добавить еще", callback_data=CBT.ADD_CMD),
                  Button("⚙️ Настроить", callback_data=f"{CBT.EDIT_CMD}:{command_index}:{offset}"))
-        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
+        logger.info(f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET добавил секцию "
                     f"$YELLOW[{raw_command}]$RESET в конфиг автоответчика.")
         bot.reply_to(m, f"✅ Добавлена новая секция "
                         f"<code>[{utils.escape(raw_command)}]</code> в конфиг автоответчика.",
@@ -194,7 +194,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
             cardinal.AR_CFG.set(cmd, "response", response_text)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
 
-        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст ответа "
+        logger.info(f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст ответа "
                     f"команды / сета команд $YELLOW[{command}]$RESET на $YELLOW\"{response_text}\"$RESET.")
 
         keyboard = types.InlineKeyboardMarkup() \
@@ -249,7 +249,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
             cardinal.AR_CFG.set(cmd, "notificationText", notification_text)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
 
-        logger.info(f"Пользователь $MAGENTA{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст "
+        logger.info(f"Пользователь $MAGENTA@{m.from_user.username} (id: {m.from_user.id})$RESET изменил текст "
                     f"уведомления команды $YELLOW[{command}]$RESET на $YELLOW\"{notification_text}\"$RESET.")
 
         keyboard = types.InlineKeyboardMarkup() \
@@ -283,7 +283,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         for cmd in commands:
             cardinal.AR_CFG.set(cmd, "telegramNotification", value)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
-        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET изменил значение "
+        logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET изменил значение "
                     f"параметра $CYANtelegramNotification$RESET команды / сета команд $YELLOW[{command}]$RESET "
                     f"на $YELLOW{value}$RESET.")
         open_edit_command_cp(c)
@@ -304,7 +304,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
         for cmd in commands:
             cardinal.AR_CFG.remove_section(cmd)
         cardinal.save_config(cardinal.RAW_AR_CFG, "configs/auto_response.cfg")
-        logger.info(f"Пользователь $MAGENTA{c.from_user.username} (id: {c.from_user.id})$RESET удалил "
+        logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET удалил "
                     f"команду / сет команд $YELLOW[{command}]$RESET.")
         bot.edit_message_text(f"Выберите интересующую вас команду.", c.message.chat.id, c.message.id,
                               reply_markup=keyboards.commands_list(cardinal, offset))

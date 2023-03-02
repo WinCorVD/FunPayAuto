@@ -16,8 +16,7 @@ UUID = "8d46ec6e-9cba-4dbb-9adf-a962366a5d12"
 SETTINGS_PAGE = False
 
 KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True)\
-    .row(KeyboardButton("🤖 О боте 🤖"), KeyboardButton("📋 Логи 📋"))\
-    .row(KeyboardButton("⚙️ Настройки ⚙️"), KeyboardButton("📈 Система 📈"))\
+    .row(KeyboardButton("📋 Логи 📋"), KeyboardButton("⚙️ Настройки ⚙️"), KeyboardButton("📈 Система 📈"))\
     .row(KeyboardButton("🔄 Перезапуск 🔄"), KeyboardButton("❌ Закрыть ❌"), KeyboardButton("🔌 Отключение 🔌"))
 
 
@@ -39,7 +38,6 @@ def main(cardinal: Cardinal, *args):
 
     tg.msg_handler(open_keyboard, commands=["keyboard"])
 
-    tg.msg_handler(tg.send_about_text, func=lambda m: m.text == "🤖 О боте 🤖")
     tg.msg_handler(tg.send_logs, func=lambda m: m.text == "📋 Логи 📋")
     tg.msg_handler(tg.send_settings_menu, func=lambda m: m.text == "⚙️ Настройки ⚙️")
     tg.msg_handler(tg.send_system_info, func=lambda m: m.text == "📈 Система 📈")

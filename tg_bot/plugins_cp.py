@@ -113,6 +113,9 @@ def init_plugins_cp(cardinal: Cardinal, *args):
 
         cardinal.toggle_plugin(uuid)
         c.data = f"{CBT.EDIT_PLUGIN}:{uuid}:{offset}"
+        logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET "
+                    f"{'активировал' if cardinal.plugins[uuid].enabled else 'деактивировал'} "
+                    f"плагин $YELLOW\"{cardinal.plugins[uuid].name}\"$RESET.")
         open_edit_plugin_cp(c)
 
     def ask_delete_plugin(c: types.CallbackQuery):
@@ -167,6 +170,8 @@ def init_plugins_cp(cardinal: Cardinal, *args):
                 logger.debug("------TRACEBACK------", exc_info=True)
 
         os.remove(cardinal.plugins[uuid].path)
+        logger.info(f"Пользователь $MAGENTA@{c.from_user.username} (id: {c.from_user.id})$RESET удалил "
+                    f"плагин $YELLOW\"{cardinal.plugins[uuid].name}\"$RESET.")
         cardinal.plugins.pop(uuid)
 
         c.data = f"{CBT.PLUGINS_LIST}:{offset}"
