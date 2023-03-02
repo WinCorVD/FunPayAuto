@@ -135,11 +135,11 @@ def notifications_settings(cardinal: Cardinal, chat_id: int) -> types.InlineKeyb
                     f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.delivery) else '🔕'}",
                     callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.delivery}"))\
         .row(Button(f"Активация лота "
-                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.lot_restore) else '🔕'}",
-                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.lot_restore}"),
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.lots_restore) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.lots_restore}"),
              Button("Деактивация лота "
-                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.lot_disable) else '🔕'}",
-                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.lot_disable}"))\
+                    f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.lots_deactivate) else '🔕'}",
+                    callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.lots_deactivate}"))\
         .add(Button(f"Поднятие лотов "
                     f"{'🔔' if tg.is_notification_enabled(chat_id, utils.NotificationTypes.lots_raise) else '🔕'}",
                     callback_data=f"{CBT.SWITCH_TG_NOTIFICATIONS}:{chat_id}:{utils.NotificationTypes.lots_raise}"))\
