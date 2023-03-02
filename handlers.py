@@ -136,8 +136,10 @@ def send_command_notification_handler(cardinal: Cardinal, event: NewMessageEvent
     else:
         text = cardinal_tools.format_msg_text(cardinal.AR_CFG[command]["notificationText"], event.message)
 
-    Thread(target=cardinal.telegram.send_notification, args=(text,),
-           kwargs={"notification_type": utils.NotificationTypes.command}, daemon=True).start()
+    Thread(target=cardinal.telegram.send_notification, args=(text,
+                                                             keyboards.reply(event.message.node_id,
+                                                                             event.message.chat_with),
+                                                             utils.NotificationTypes.command), daemon=True).start()
 
 
 def test_auto_delivery_handler(cardinal: Cardinal, event: NewMessageEvent) -> None:
