@@ -35,6 +35,8 @@ class NotificationTypes:
     new_message = "newmsg"
     command = "command"
     new_order = "neworder"
+    lot_restore = "lot_restore"
+    lot_disable = "lot_disable"
     delivery = "delivery"
     lots_raise = "raise"
     other = "other"
