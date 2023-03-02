@@ -67,7 +67,6 @@ class TGBot:
             "block_list": "получить ЧС",
             "logs": "получить лог-файл",
             "del_logs": "удалить старые лог-файлы",
-            "about": "информация о боте",
             "sys": "информация о нагрузке на систему",
             "restart": "перезагрузить бота",
             "power_off": "выключить бота"
@@ -441,12 +440,6 @@ class TGBot:
                     continue
         self.bot.send_message(message.chat.id, f"🗑️ Удалено {complete} лог-файл(-а, -ов).")
 
-    def send_about_text(self, message: types.Message):
-        """
-        Отправляет текст о боте.
-        """
-        self.bot.send_message(message.chat.id, utils.ABOUT_TEXT)
-
     def send_system_info(self, msg: types.Message):
         """
         Отправляет информацию о нагрузке на систему.
@@ -766,7 +759,6 @@ ID чата: <code>{call.message.chat.id}</code>""",
         self.msg_handler(self.send_ban_list, commands=["block_list"])
         self.msg_handler(self.send_logs, commands=["logs"])
         self.msg_handler(self.del_logs, commands=["del_logs"])
-        self.msg_handler(self.send_about_text, commands=["about"])
         self.msg_handler(self.send_system_info, commands=["sys"])
         self.msg_handler(self.restart_cardinal, commands=["restart"])
         self.msg_handler(self.ask_power_off, commands=["power_off"])

@@ -17,16 +17,6 @@ import time
 import Utils.cardinal_tools
 
 
-ABOUT_TEXT = """FunPay Cardinal - это продвинутый бот для автоматизации рутинных действий.
-Разработчик:
-    TG: @woopertail
-    VK: https://vk.com/woopertail
-    GitHub: https://github.com/woopertail
-
-Скачать бота:
-https://github.com/woopertail/FunPayCardinal"""
-
-
 class NotificationTypes:
     """
     Класс с типами Telegram уведомлений.
