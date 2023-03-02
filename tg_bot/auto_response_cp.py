@@ -166,7 +166,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
                                   "\n<code>$time</code> - текущее время в формате <i>ЧЧ:ММ</i>."
                                   "\n<code>$full_time</code> - текущее время в формате <i>ЧЧ:ММ:СС</i>."
                                   "\n<code>$username</code> - никнейм написавшего пользователя."
-                                  "\n<code>$message_text</code> - текст сообщения, которое ввел пользователь.",
+                                  "\n<code>$message_text</code> - текст сообщения, которое ввел пользователь."
+                                  "\n<code>$node_id</code> - ID чата.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
 
         tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.EDIT_CMD_RESPONSE_TEXT,
@@ -220,7 +221,8 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
                                   "\n<code>$time</code> - текущее время в формате <i>ЧЧ:ММ</i>."
                                   "\n<code>$full_time</code> - текущее время в формате <i>ЧЧ:ММ:СС</i>."
                                   "\n<code>$username</code> - никнейм написавшего пользователя."
-                                  "\n<code>$message_text</code> - текст сообщения, которое ввел пользователь.",
+                                  "\n<code>$message_text</code> - текст сообщения, которое ввел пользователь."
+                                  "\n<code>$node_id</code> - ID чата.",
                                   parse_mode="HTML", reply_markup=keyboards.CLEAR_STATE_BTN)
         tg.set_user_state(c.message.chat.id, result.id, c.from_user.id, CBT.EDIT_CMD_NOTIFICATION_TEXT,
                           {"command_index": command_index,

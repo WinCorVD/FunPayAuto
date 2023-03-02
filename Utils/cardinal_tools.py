@@ -305,7 +305,8 @@ def format_msg_text(text: str, msg: FunPayAPI.types.Message) -> str:
         "$time": time_,
         "$full_time": time_full,
         "$username": msg.chat_with,
-        "$message_text": msg.text
+        "$message_text": msg.text,
+        "$node_id": msg.node_id
     }
 
     for var in variables:
