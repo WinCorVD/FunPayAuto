@@ -300,7 +300,7 @@ def deliver_product(cardinal: Cardinal, event: NewOrderEvent, delivery_obj: conf
     if not result:
         cardinal_tools.add_products(f"storage/products/{file_name}", [product_text])
         logger.error(f"Не удалось отправить товар для ордера $YELLOW{event.order.id}$RESET. ")
-    return result, response_text, -1
+    return result, response_text, cardinal_tools.count_products(f"storage/products/{file_name}")
 
 
 def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> None:
@@ -338,21 +338,21 @@ def deliver_product_handler(cardinal: Cardinal, event: NewOrderEvent, *args) -> 
         result = deliver_product(cardinal, event, delivery_obj, *args)
         if not result[0]:
             cardinal.run_handlers(cardinal.post_delivery_handlers,
-                                  (cardinal, event, config_lot_name, "Превышено кол-во попыток.", True))
+                                  (cardinal, event, config_lot_name, "Превышено кол-во попыток.", result[2], True))
         else:
             logger.info(f"Товар для ордера {event.order.id} выдан.")
             cardinal.run_handlers(cardinal.post_delivery_handlers,
-                                  (cardinal, event, config_lot_name, result[1], False))
+                                  (cardinal, event, config_lot_name, result[1], result[2], False))
     except Exception as e:
         logger.error(f"Произошла непредвиденная ошибка при обработке заказа {event.order.id}.")
         logger.debug("------TRACEBACK------", exc_info=True)
         cardinal.run_handlers(cardinal.post_delivery_handlers,
-                              (cardinal, event, config_lot_name, str(e), True))
+                              (cardinal, event, config_lot_name, str(e), -1, True))
 
 
 # REGISTER_TO_POST_DELIVERY
 def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent, config_lot_name: str,
-                                       delivery_text: str, errored: bool = False, *args):
+                                       delivery_text: str, products_left: int, errored: bool = False, *args):
     """
     Отправляет уведомление в телеграм об отправке товара.
     """
@@ -364,10 +364,13 @@ def send_delivery_notification_handler(cardinal: Cardinal, event: NewOrderEvent,
 
 Ошибка: <code>{utils.escape(delivery_text)}</code>"""
     else:
+        amount = "<b>∞</b>" if products_left == -1 else f"<code>{products_left}</code>"
         text = f"""✅ Успешно выдал товар для ордера <code>{event.order.id}</code>.
 
 <b><i>Товар:</i></b>
-<code>{utils.escape(delivery_text)}</code>"""
+<code>{utils.escape(delivery_text)}</code>
+
+<b><i>Осталось товаров: </i></b>{amount}"""
 
     Thread(target=cardinal.telegram.send_notification, args=(text, ),
            kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
