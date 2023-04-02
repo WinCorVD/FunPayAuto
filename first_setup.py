@@ -42,7 +42,7 @@ default_config = {
     },
 
     "Other": {
-        "watermark": "[👾 FunPay Cardinal 👻]",
+        "watermark": "",
         "requestsDelay": "6"
     }
 }
