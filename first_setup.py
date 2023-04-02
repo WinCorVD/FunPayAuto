@@ -42,7 +42,7 @@ default_config = {
     },
 
     "Other": {
-        "watermark": "",
+        "watermark": "[Продовец]",
         "requestsDelay": "6"
     }
 }
